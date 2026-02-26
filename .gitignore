@@ -23,9 +23,13 @@ config.local.*
 
 # ChromaDB / vector store data (local databases - usually large)
 chroma_db/
+chroma_store/
 *.chroma/
 *.db
 *.sqlite3
+
+# Reports / generated output
+reports/
 
 # Logs
 *.log
