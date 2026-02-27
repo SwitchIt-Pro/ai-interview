@@ -10,7 +10,7 @@ Architecture:
 Load order:  .env file → environment variables → defaults
 """
 
-import os
+import os   # os is used to get the environment variables uses .getenv()
 from pathlib import Path
 from dotenv import load_dotenv
 

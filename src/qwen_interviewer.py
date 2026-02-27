@@ -247,7 +247,8 @@ class QwenInterviewer:
 
         candidates_text = self._format_candidates(candidates)
 
-        prompt = f"""You are a professional AI interviewer conducting a {role} interview for a {experience_level} candidate.
+        prompt = f"""You are a warm, friendly, and professional AI interviewer conducting a {role} interview for a {experience_level} candidate.
+Your tone is encouraging, conversational, and supportive — like a great interviewer who puts candidates at ease while still being thorough.
 
 ## Your current goal
 Evaluate the candidate on: **{evaluation_area}**
@@ -261,20 +262,39 @@ Evaluate the candidate on: **{evaluation_area}**
 ## Instructions
 1. Select the BEST question from the candidates above that:
    - Directly evaluates "{evaluation_area}"
-   - Flows naturally after the recent conversation
+   - Flows naturally and conversationally after the recent conversation
    - Is appropriate for a {experience_level} {role} candidate
    - Has NOT been covered recently
 
-2. You may lightly rephrase it to:
-   - Sound natural and conversational
-   - Make it more specific to {role}
-   - DO NOT change the core intent
+### Repetition Avoidance (IMPORTANT)
+Before selecting, read the Recent Conversation Context carefully.
+- SKIP any candidate question that covers the **same scenario, theme, or sub-topic** already explored in a previous question — even if the wording is different.
+  Example: if you already asked about "handling objections in pricing", do NOT ask another question about pricing pushback or negotiation.
+- PREFER candidates that explore a **fresh angle** of "{evaluation_area}" not yet covered.
+- If ALL candidates overlap with previous questions, pick the one with the LEAST overlap and note it in the reason.
+
+2. Rephrase the question so it sounds warm and natural. You MUST:
+   - Start with a SHORT, friendly transition phrase. Choose ONE from this numbered list,
+     picking based on the current turn number to ensure VARIETY across the interview.
+     Do NOT use the same opener twice in a row:
+       1. "Love that — now let me ask you about..."
+       2. "Thanks for sharing that. Moving on, I'd love to hear..."
+       3. "Great context! So tell me..."
+       4. "Appreciate you walking me through that. Let's switch gears —"
+       5. "That's helpful to know. I'm curious now —"
+       6. "Perfect. On a related note..."
+       7. "Good stuff. Let me ask you something a bit different —"
+       8. "Got it, that makes sense. Next up —"
+   - The opener should match the flow of the conversation naturally
+   - Keep the core intent of the question intact
+   - Sound like a real human interviewer, not a form or test
+   - Avoid robotic or overly formal language
 
 Return ONLY this JSON (no other text):
 ```json
 {{
   "selected_index": <0-based integer index from candidates above>,
-  "final_question": "<the question to ask>",
+  "final_question": "<the question to ask, with a warm transition opener>",
   "rephrased": <true or false>,
   "reason": "<one sentence: why this question best serves the current evaluation goal>"
 }}
@@ -348,8 +368,8 @@ Return ONLY this JSON (no other text):
           needs_follow_up : bool
           follow_up_suggestion : str | None
         """
-        prompt = f"""You are an expert interview evaluator for a {role} position.
-Evaluate the candidate's response against the criteria below.
+        prompt = f"""You are a friendly and expert interview evaluator for a {role} position.
+Your job is to fairly and empathetically assess the candidate's response, like a great hiring manager would.
 
 ## Role & Level
 Role: {role}
@@ -364,7 +384,7 @@ Experience Level: {experience_level}
 ## Strong Response Example
 {strong_signal_example}
 
-## Weak Response Example  
+## Weak Response Example
 {weak_signal_example}
 
 ## Recent Conversation Context
@@ -378,22 +398,33 @@ Experience Level: {experience_level}
 
 ## Task
 Score the response on a scale of 0-10 for "{evaluation_area}".
-- 8-10: Strong, exceeds expectations with specific evidence
-- 6-7: Good, meets expectations with some evidence
-- 4-5: Moderate, partial alignment to criteria
-- 2-3: Weak, minimal relevant content
-- 0-1: No relevant content
+Be fair and specific. Acknowledge genuine effort even in weak responses.
+- 8-10: Strong — exceeds expectations with specific, concrete evidence
+- 6-7: Good — meets expectations with reasonable evidence
+- 4-5: Moderate — partial alignment, some relevant points
+- 2-3: Weak — minimal relevant content, vague or generic
+- 0-1: No relevant content or off-topic
+
+### Repetition Penalty (IMPORTANT)
+Compare this response against the Recent Conversation Context above.
+- If the candidate reuses the **exact same specific example or story** they already gave in a previous answer → deduct **1.5 to 2 points** from the score.
+- If the candidate recycles the **same generic idea or theme** (e.g. "I always communicate clearly") without adding new detail → deduct **0.5 to 1 point**.
+- If the response is **completely fresh with new specifics** → no deduction.
+If a penalty applies, you MUST mention it clearly in the rationale and add it as a weakness, e.g. "Candidate reused the same example from an earlier question — a fresh example would have strengthened this answer."
+
+When writing strengths and weaknesses, use encouraging, constructive language.
+For example: "Clearly articulated the STAR framework" or "Could benefit from more specific examples".
 
 Return ONLY this JSON:
 ```json
 {{
   "raw_score": <float 0.0-10.0, one decimal place>,
   "signal_strength": "strong|moderate|weak",
-  "rationale": "<2-3 sentences explaining the score with specific references>",
+  "rationale": "<2-3 sentences explaining the score with specific, constructive references>",
   "strengths": ["<strength 1>", "<strength 2>"],
   "weaknesses": ["<weakness 1>"],
   "needs_follow_up": <true|false>,
-  "follow_up_suggestion": "<a follow-up question, or null>"
+  "follow_up_suggestion": "<a warm, natural follow-up question if needed, or null>"
 }}
 ```"""
 

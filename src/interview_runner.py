@@ -167,7 +167,15 @@ class InterviewRunner:
         print(f"  Level: {self._level}")
         print(f"  Total Questions: {total_q}")
         print("  Interviewer: Qwen-7B | Meta-Evaluator: OpenAI")
-        print("═" * 65 + "\n")
+        print("═" * 65)
+        print()
+        print("  👋 Hi there! Thanks so much for joining us today.")
+        print(f"  We're excited to learn more about you for the {self._role} role.")
+        print("  This will be a relaxed conversation — just be yourself, take your")
+        print("  time with each answer, and feel free to share real examples.")
+        print(f"  We'll go through {total_q} questions across a few key areas.")
+        print("  Let's get started!")
+        print()
 
         # ── Simulation mode ───────────────────────────────────────
         if self._simulate:
@@ -182,7 +190,7 @@ class InterviewRunner:
             tracker = state.area_tracker[area]
             turn_num = state.total_turns + 1
             print(f"\n{'─' * 65}")
-            print(f"  Question {turn_num}/{total_q}  |  Evaluation Area: {area}")
+            print(f"  Question {turn_num} of {total_q}  ·  Topic: {area}")
             print(f"{'─' * 65}")
 
             try:

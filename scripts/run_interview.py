@@ -168,13 +168,8 @@ def main():
     )
     parser.add_argument(
         "--export",
-        default="reports/",
-        help="Directory to save reports (default: reports/)"
-    )
-    parser.add_argument(
-        "--no-export",
         action="store_true",
-        help="Skip saving reports to disk"
+        help="Save JSON and text reports to the reports/ directory"
     )
     parser.add_argument(
         "--verbose",
@@ -232,9 +227,26 @@ def main():
     generator = ReportGenerator()
     generator.print_summary(session)
 
-    if not args.no_export:
+    # ── OpenAI final review of Qwen's performance ─────────────────
+    if use_meta_eval:
+        try:
+            from src.openai_evaluator import OpenAIMetaEvaluator
+            meta_evaluator = OpenAIMetaEvaluator()
+            print("\n" + "═" * 65)
+            print("  OPENAI REVIEW — Qwen-7B Interviewer Performance")
+            print("═" * 65)
+            print("  ⏳ OpenAI is writing its final review of Qwen...")
+            review = meta_evaluator.review_qwen_performance(session)
+            print()
+            for line in review.splitlines():
+                print(f"  {line}")
+            print("═" * 65)
+        except Exception as e:
+            print(f"\n  ⚠️  Could not generate Qwen performance review: {e}")
+
+    if args.export:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_dir = Path(args.export)
+        export_dir = Path("reports/")
         export_dir.mkdir(parents=True, exist_ok=True)
 
         json_path = str(export_dir / f"session_{timestamp}.json")
@@ -242,6 +254,7 @@ def main():
 
         generator.save_json(session, json_path)
         generator.save_text(session, text_path)
+        print(f"  📁 Reports saved to {export_dir}")
 
     print("\n  ✅ Interview complete.\n")
 

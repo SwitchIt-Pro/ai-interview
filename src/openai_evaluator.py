@@ -436,6 +436,88 @@ Return ONLY this JSON:
                 qwen_rationale_feedback="Evaluation error.",
             )
 
+    # ── End-of-Session Qwen Performance Review ────────────────────
+
+    def review_qwen_performance(
+        self,
+        session,  # InterviewSession
+    ) -> str:
+        """
+        After the full interview, ask OpenAI to write an overall
+        performance review of Qwen-7B as the interviewer.
+
+        Covers:
+          - Question quality across all turns
+          - Scoring calibration (was Qwen consistent and accurate?)
+          - Bias or patterns noticed (e.g. over-generous, repetitive questions)
+          - A final recommendation: Trustworthy / Needs Calibration / Unreliable
+
+        Returns
+        -------
+        str: formatted multi-line review for terminal display
+        """
+        turns = session.full_turn_log
+        if not turns:
+            return "  No turns to review."
+
+        # Build a concise turn-by-turn summary for OpenAI
+        turn_summaries = []
+        for t in turns:
+            delta_dir = "▲" if t.openai_score_delta > 0 else ("▼" if t.openai_score_delta < 0 else "=")
+            turn_summaries.append(
+                f"Turn {t.turn_number} | Area: {t.evaluation_area}\n"
+                f"  Question: {t.question_text[:120]}\n"
+                f"  Qwen Score: {t.qwen_score}/10 | OpenAI Score: {t.openai_score}/10 | "
+                f"Delta: {delta_dir}{abs(t.openai_score_delta):.1f}\n"
+                f"  Question Verdict: {t.openai_question_verdict or 'N/A'} "
+                f"(Quality: {t.openai_question_quality or 'N/A'}/10)\n"
+                f"  Scoring Verdict: {t.openai_scoring_verdict or 'N/A'}"
+            )
+
+        turns_text = "\n\n".join(turn_summaries)
+
+        avg_delta = (
+            sum(t.openai_score_delta for t in turns) / len(turns)
+            if turns else 0.0
+        )
+        scoring_issues  = session.qwen_scoring_issues
+        question_issues = session.qwen_question_issues
+
+        prompt = f"""You are writing a performance review of an AI interviewer called Qwen-7B.
+Qwen conducted a {session.role} interview (Level: {session.experience_level}).
+You have already evaluated each of Qwen's turns individually. Now write a final overall review.
+
+## Interview Summary
+- Total turns: {len(turns)}
+- Question quality issues: {question_issues}/{len(turns)}
+- Scoring accuracy issues: {scoring_issues}/{len(turns)}
+- Average score delta (OpenAI - Qwen): {avg_delta:+.2f}
+  (Positive = Qwen under-scored, Negative = Qwen over-scored)
+
+## Turn-by-Turn Breakdown
+{turns_text}
+
+## Your Task
+Write a structured performance review of Qwen as an interviewer. Cover:
+
+1. **Question Quality** — Were Qwen's questions well-chosen, relevant, and appropriately challenging?
+2. **Scoring Calibration** — Was Qwen's scoring consistent and fair across turns? Any bias (e.g. always harsh or always generous)?
+3. **Notable Patterns** — Any recurring strengths or weaknesses in how Qwen performed?
+4. **Overall Recommendation** — One of:
+   - ✅ TRUSTWORTHY — Qwen performed reliably. Scores and questions can be trusted.
+   - ⚠️ NEEDS CALIBRATION — Qwen showed some issues. Results should be reviewed carefully.
+   - ❌ UNRELIABLE — Significant problems. Manual review strongly recommended.
+
+Write in a professional but direct tone. Be specific — reference actual turn data when making a point.
+Keep the total response to 200-300 words."""
+
+        try:
+            raw = self._call_openai(prompt)
+            return raw.strip()
+        except Exception as e:
+            logger.error("Qwen performance review failed: %s", e)
+            return f"  Could not generate Qwen performance review: {e}"
+
     # ── OpenAI API Call ───────────────────────────────────────────
 
     def _call_openai(self, prompt: str) -> str:
