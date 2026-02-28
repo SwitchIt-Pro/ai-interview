@@ -5,18 +5,17 @@ Orchestrates the complete interview session.
 
 Full turn flow:
   1. Get next evaluation area to target (by weight priority)
-  2. Query ChromaDB for best matching questions (Qwen RAG retrieval)
-  3. Qwen-7B selects the best question + optionally rephrases it
+  2. Query ChromaDB for best matching questions (OpenAI RAG retrieval)
+  3. OpenAI selects the best question + optionally rephrases it
   4. Print the question (in a real system: speak to candidate)
   5. Receive candidate's response (CLI input or simulated)
-  6. Qwen-7B scores the response (0-10 with rationale)
-  7. OpenAI meta-evaluates: was the question good? was Qwen's score fair?
+  6. OpenAI scores the response (0-10 with rationale)
+  7. OpenAI meta-evaluates: was the question good? was the score fair?
   8. Update state, print live diagnostics
   9. Repeat until all areas are covered
 
 Components:
-  Qwen-7B (local)  → steps 2, 3, 6
-  OpenAI (remote)  → step 7 (meta-evaluation only)
+  OpenAI → all steps (interviewer + meta-evaluator + simulator)
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ from .config import config
 from .vector_store import VectorStore
 from .rag_engine import RAGEngine
 from .embedder import Embedder
-from .qwen_interviewer import QwenInterviewer
+from .openai_interviewer import QwenInterviewer
 from .openai_evaluator import OpenAIMetaEvaluator
 from .interview_state import InterviewStateManager
 from .candidate_simulator import CandidateSimulator
@@ -40,8 +39,9 @@ class InterviewRunner:
     """
     Runs a complete Scout AI Interview session.
 
-    Qwen-7B    = responsible for interviewing (question selection + scoring)
-    OpenAI     = responsible for meta-evaluation (auditing Qwen's work)
+    OpenAI (Interviewer)      = question selection + scoring
+    OpenAI (Meta-Evaluator)   = auditing interviewer question quality + scoring accuracy
+    OpenAI (Simulator)        = simulating candidate responses (in --simulate mode)
 
     Usage
     -----
@@ -57,7 +57,7 @@ class InterviewRunner:
             {"area": "Client Relationship",    "weight": 20, "questions": 2},
             {"area": "Resilience & Grit",      "weight": 15, "questions": 2},
         ],
-        use_meta_eval=True,   # OpenAI meta-evaluates Qwen (default: True)
+        use_meta_eval=True,   # OpenAI meta-evaluates the interviewer (default: True)
     )
     runner.run_interactive()  # CLI interview
     """
@@ -119,11 +119,11 @@ class InterviewRunner:
 
         print(f"       ✓ ChromaDB ready — {self._store.count} questions indexed")
 
-        # ── Step 2: initialize Qwen ───────────────────────────────
-        print("\n  [2/3] Connecting to Qwen-7B (Ollama)...")
+        # ── Step 2: initialize OpenAI Interviewer ─────────────────
+        print("\n  [2/3] Connecting to OpenAI Interviewer...")
         self._engine = RAGEngine(self._store)
         self._qwen = QwenInterviewer()
-        print("       ✓ Qwen-7B interviewer ready")
+        print(f"       ✓ OpenAI interviewer ready ({config.OPENAI_INTERVIEWER_MODEL})")
 
         # ── Step 3: initialize OpenAI meta-evaluator + simulator ───
         if use_meta_eval or simulate:
@@ -166,7 +166,7 @@ class InterviewRunner:
         print(f"  SCOUT AI INTERVIEW — {self._role}")
         print(f"  Level: {self._level}")
         print(f"  Total Questions: {total_q}")
-        print("  Interviewer: Qwen-7B | Meta-Evaluator: OpenAI")
+        print(f"  Interviewer: {config.OPENAI_INTERVIEWER_MODEL} | Meta-Eval: {'ON' if self._use_meta_eval else 'OFF'}")
         print("═" * 65)
         print()
         print("  👋 Hi there! Thanks so much for joining us today.")
@@ -377,7 +377,7 @@ class InterviewRunner:
         question_id   = selected["question_id"]
         rag_context   = selected["rag_context"]
 
-        print(f"\n  🤖 Qwen: {question_text}")
+        print(f"\n  🤖 AI: {question_text}")
         if selected.get("rephrased"):
             print(f"     ↳ (rephrased: {selected.get('reason', '')})")
 
@@ -402,7 +402,7 @@ class InterviewRunner:
             print(f"\n  👤 Candidate: {candidate_response}")
 
         # ── 4. Qwen: Score the response ───────────────────────────
-        print("\n  ⏳ Qwen is scoring the response...")
+        print("\n  ⏳ AI is scoring the response...")
         scoring = self._qwen.score_response(
             question_text=question_text,
             candidate_response=candidate_response,
@@ -419,7 +419,7 @@ class InterviewRunner:
         signal     = scoring["signal_strength"].upper()
         score_icon = "✅" if qwen_score >= 7 else ("⚠️" if qwen_score >= 5 else "❌")
 
-        print(f"\n  📊 Qwen Score: {qwen_score}/10  {score_icon}  [{signal}]")
+        print(f"\n  📊 AI Score: {qwen_score}/10  {score_icon}  [{signal}]")
         print(f"     Rationale: {scoring['rationale']}")
 
         if scoring.get("strengths"):
@@ -443,7 +443,7 @@ class InterviewRunner:
 
         # ── 6. OpenAI Meta-Evaluation ─────────────────────────────
         if self._use_meta_eval and self._meta_evaluator:
-            print("\n  ⏳ OpenAI is meta-evaluating Qwen's performance...")
+            print("\n  ⏳ OpenAI is meta-evaluating the interviewer's performance...")
             try:
                 meta = self._meta_evaluator.evaluate_turn(
                     turn_number=turn.turn_number,

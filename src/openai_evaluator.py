@@ -1,23 +1,23 @@
 """
 src/openai_evaluator.py
 -----------------------
-OpenAI acts as the META-EVALUATOR — it evaluates Qwen's performance.
+OpenAI acts as the META-EVALUATOR — it evaluates the AI Interviewer's performance.
 
 OpenAI does TWO things:
   1. QUESTION QUALITY CHECK:
-     Was the question Qwen selected appropriate?
+     Was the question selected appropriate?
      - Right difficulty for the role/level?
      - Does it actually test the intended evaluation area?
      - Is it clear and professionally phrased?
 
   2. SCORING ACCURACY CHECK:
-     Did Qwen score the response fairly?
-     - Is Qwen's score consistent with the response quality?
+     Did the interviewer score the response fairly?
+     - Is the score consistent with the response quality?
      - Is the rationale sound and evidence-backed?
      - Flag over-scoring or under-scoring tendencies
 
-This is the "OpenAI evaluating Qwen" layer described in the system design.
-OpenAI does NOT conduct the interview — it only audits Qwen's work.
+This is the audit layer described in the system design.
+The meta-evaluator does NOT conduct the interview — it only audits the interviewer's work.
 """
 
 from __future__ import annotations
@@ -138,10 +138,10 @@ class MetaEvaluationResult:
 
 class OpenAIMetaEvaluator:
     """
-    Uses OpenAI GPT-4o-mini to evaluate Qwen's interviewing performance.
+    Uses OpenAI GPT-4o-mini to evaluate the AI Interviewer's performance.
 
-    This is the only place OpenAI is used in the system.
-    It does NOT conduct the interview — it audits Qwen's work.
+    This audits the interview turn quality and scoring calibration.
+    It does NOT conduct the interview — it only audits the interviewer's work.
 
     Usage
     -----
@@ -277,7 +277,7 @@ class OpenAIMetaEvaluator:
 
         what_listens = rag_context.get("what_ai_listens_for", "Not available")
 
-        prompt = f"""You are auditing an AI interviewer (Qwen-7B) that selected a question for an interview.
+        prompt = f"""You are auditing an AI interviewer that selected a question for an interview.
 
 ## Interview Context
 Role: {role}
@@ -362,8 +362,8 @@ Return ONLY this JSON:
         strengths_str = "\n  - ".join(qwen_strengths) if qwen_strengths else "None listed"
         weaknesses_str = "\n  - ".join(qwen_weaknesses) if qwen_weaknesses else "None listed"
 
-        prompt = f"""You are auditing an AI interviewer (Qwen-7B) that scored a candidate's response.
-Your job: verify whether Qwen's score is accurate and its reasoning is sound.
+        prompt = f"""You are auditing an AI interviewer that scored a candidate's response.
+Your job: verify whether the score is accurate and the reasoning is sound.
 
 ## Interview Context
 Role: {role}
@@ -487,9 +487,9 @@ Return ONLY this JSON:
         scoring_issues  = session.qwen_scoring_issues
         question_issues = session.qwen_question_issues
 
-        prompt = f"""You are writing a performance review of an AI interviewer called Qwen-7B.
-Qwen conducted a {session.role} interview (Level: {session.experience_level}).
-You have already evaluated each of Qwen's turns individually. Now write a final overall review.
+        prompt = f"""You are writing a performance review of the AI Interviewer.
+The interviewer conducted a {session.role} interview (Level: {session.experience_level}).
+You have already evaluated each turn individually. Now write a final overall review.
 
 ## Interview Summary
 - Total turns: {len(turns)}

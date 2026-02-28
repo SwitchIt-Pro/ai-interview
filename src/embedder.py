@@ -1,20 +1,14 @@
 """
 src/embedder.py
 ---------------
-Generates text embeddings using nomic-embed-text via Ollama — with PARALLEL requests.
+Generates text embeddings using OpenAI text-embedding-3-small — with PARALLEL requests.
 
-MODEL SEPARATION:
-  nomic-embed-text  →  embeddings ONLY (fast, dedicated, used here)
-  qwen2.5:7b        →  interviewer ONLY (question selection + scoring in qwen_interviewer.py)
-  gpt-4o-mini       →  meta-evaluator ONLY (OpenAI audits Qwen in openai_evaluator.py)
+MODEL:
+  text-embedding-3-small  →  embeddings ONLY (fast, cost-effective, used for ChromaDB indexing)
 
 SPEED:
-  nomic-embed-text is a 274 MB dedicated embedding model.
-  It is ~10-20x faster than Qwen-7B for this task.
-  With 8 parallel workers: ~3-10 minutes for 3,691 questions.
-
-Setup:
-  ollama pull nomic-embed-text
+  Uses ThreadPoolExecutor for parallel embedding calls.
+  With 8 parallel workers: typically 1-3 minutes for 3,000+ questions.
 
 Usage:
   embedder = Embedder()
@@ -26,7 +20,6 @@ from __future__ import annotations
 
 import logging
 import time
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional
 
@@ -39,36 +32,37 @@ _MAX_RETRIES = 3
 
 class Embedder:
     """
-    Generates embeddings using Qwen-7B via Ollama — with parallel requests.
+    Generates embeddings using OpenAI text-embedding-3-small — with parallel requests.
 
     Parallel embedding: instead of embedding one text at a time (slow),
-    we send `workers` requests simultaneously to Ollama. This gives
-    3–5× speedup on CPU, more on GPU.
+    we send `workers` requests simultaneously to the OpenAI API. This gives
+    a significant speedup for large batches.
 
     Usage
     -----
-    embedder = Embedder(workers=4)          # default — safe for most machines
-    embedder = Embedder(workers=8)          # if you have a GPU
-    vectors  = embedder.encode(texts)       # parallel batch
-    vector   = embedder.encode_one("text")  # single (no threads)
+    embedder = Embedder(workers=8)           # default
+    vectors  = embedder.encode(texts)        # parallel batch
+    vector   = embedder.encode_one("text")   # single (no threads)
     """
 
     def __init__(
         self,
         model: Optional[str] = None,
-        base_url: Optional[str] = None,
         workers: Optional[int] = None,
     ):
-        # Uses EMBEDDING_MODEL (nomic-embed-text), NOT QWEN_MODEL.
-        # Qwen remains strictly the interviewer in qwen_interviewer.py.
-        self._model    = model    or config.EMBEDDING_MODEL
-        self._base_url = (base_url or config.OLLAMA_BASE_URL).rstrip("/")
-        self._endpoint = f"{self._base_url}/api/embeddings"
+        if not config.OPENAI_API_KEY:
+            raise ValueError(
+                "OPENAI_API_KEY is not set in .env.\n"
+                "Add: OPENAI_API_KEY=sk-proj-..."
+            )
+        from openai import OpenAI
+        self._client   = OpenAI(api_key=config.OPENAI_API_KEY)
+        self._model    = model or config.EMBEDDING_MODEL
         self._workers  = workers if workers is not None else config.EMBEDDING_WORKERS
 
         logger.info(
-            "Embedder ready — model: %s, workers: %d, endpoint: %s",
-            self._model, self._workers, self._endpoint,
+            "Embedder ready — model: %s, workers: %d",
+            self._model, self._workers,
         )
 
     # ── Public API ────────────────────────────────────────────────
@@ -79,10 +73,10 @@ class Embedder:
         show_progress: bool = False,
     ) -> List[List[float]]:
         """
-        Encode a list of texts into embedding vectors using Qwen-7B.
+        Encode a list of texts into embedding vectors using OpenAI.
 
-        Uses a ThreadPoolExecutor to send `workers` concurrent requests
-        to Ollama, dramatically reducing total embedding time.
+        Uses a ThreadPoolExecutor to send `workers` concurrent requests,
+        dramatically reducing total embedding time.
 
         Order is preserved — embeddings[i] corresponds to texts[i].
 
@@ -118,7 +112,7 @@ class Embedder:
         show_progress: bool,
     ) -> List[List[float]]:
         """
-        Send embedding requests to Ollama concurrently via ThreadPoolExecutor.
+        Send embedding requests to OpenAI concurrently via ThreadPoolExecutor.
 
         We keep a results dict indexed by position so order is preserved,
         since futures complete in non-deterministic order.
@@ -141,19 +135,19 @@ class Embedder:
                 except Exception as e:
                     logger.error("Embedding failed for index %d: %s", idx, e)
                     raise RuntimeError(
-                        f"Qwen embedding failed for text at index {idx}: {e}"
+                        f"OpenAI embedding failed for text at index {idx}: {e}"
                     )
                 completed += 1
                 if show_progress and total > 5 and completed % 5 == 0:
                     pct = completed / total * 100
                     print(
-                        f"  [Qwen Embedder] {completed}/{total} ({pct:.0f}%)...",
+                        f"  [Embedder] {completed}/{total} ({pct:.0f}%)...",
                         end="\r",
                         flush=True,
                     )
 
         if show_progress and total > 5:
-            print(f"  [Qwen Embedder] {total}/{total} (100%) ✓           ")
+            print(f"  [Embedder] {total}/{total} (100%) ✓           ")
 
         # Reconstruct in original order
         return [results[i] for i in range(total)]
@@ -172,88 +166,77 @@ class Embedder:
             embeddings.append(self._embed_single(text))
             if show_progress and total > 5 and (i + 1) % 5 == 0:
                 print(
-                    f"  [Qwen Embedder] {i + 1}/{total}...",
+                    f"  [Embedder] {i + 1}/{total}...",
                     end="\r",
                     flush=True,
                 )
         if show_progress and total > 5:
-            print(f"  [Qwen Embedder] {total}/{total} ✓           ")
+            print(f"  [Embedder] {total}/{total} ✓           ")
         return embeddings
 
     # ── Single Embedding ──────────────────────────────────────────
 
     def _embed_single(self, text: str) -> List[float]:
         """
-        POST to Ollama /api/embeddings for one text using Qwen-7B.
-        Thread-safe — each call creates its own requests session.
+        Call OpenAI Embeddings API for one text.
+        Thread-safe — each call uses the shared client (which is thread-safe).
         Retries up to 3 times on transient errors.
         """
+        from openai import RateLimitError, APIConnectionError, APIStatusError
+
         last_exc: Optional[Exception] = None
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                response = requests.post(
-                    self._endpoint,
-                    json={"model": self._model, "prompt": text},
-                    timeout=60,
+                response = self._client.embeddings.create(
+                    model=self._model,
+                    input=text,
                 )
-                response.raise_for_status()
-                data = response.json()
+                return response.data[0].embedding
 
-                if "embedding" not in data:
-                    raise RuntimeError(
-                        f"Ollama/Qwen response missing 'embedding' key. Got: {data}"
-                    )
-                return data["embedding"]
-
-            except requests.exceptions.ConnectionError as e:
+            except RateLimitError as e:
                 last_exc = e
                 delay = 2.0 * (2 ** (attempt - 1))
                 logger.warning(
-                    "Ollama connection failed (attempt %d/%d). Retrying in %.0fs...",
+                    "OpenAI rate limit on embedding (attempt %d/%d). Retrying in %.0fs...",
                     attempt, _MAX_RETRIES, delay,
                 )
                 time.sleep(delay)
 
-            except requests.exceptions.Timeout as e:
+            except APIConnectionError as e:
                 last_exc = e
+                delay = 2.0 * (2 ** (attempt - 1))
                 logger.warning(
-                    "Qwen embedding timed out (attempt %d/%d).", attempt, _MAX_RETRIES
+                    "OpenAI connection error (attempt %d/%d). Retrying in %.0fs...",
+                    attempt, _MAX_RETRIES, delay,
                 )
-                time.sleep(2.0)
+                time.sleep(delay)
 
-            except requests.exceptions.HTTPError as e:
-                raise RuntimeError(
-                    f"Ollama HTTP error: {e}\n"
-                    f"Check if '{self._model}' is pulled: 'ollama pull {self._model}'"
-                )
+            except APIStatusError as e:
+                if e.status_code >= 500:
+                    last_exc = e
+                    time.sleep(2.0)
+                else:
+                    raise RuntimeError(f"OpenAI API error: {e}")
 
         raise RuntimeError(
-            f"Qwen embedding failed after {_MAX_RETRIES} retries.\n"
+            f"OpenAI embedding failed after {_MAX_RETRIES} retries.\n"
             f"Last error: {last_exc}\n"
-            f"Make sure Ollama is running: 'ollama serve'"
+            f"Check your OPENAI_API_KEY and network connection."
         )
 
     # ── Connection Check ──────────────────────────────────────────
 
     def check_connection(self) -> bool:
-        """Verify Ollama is running and nomic-embed-text model is available."""
+        """Verify OpenAI API is accessible by making a test embedding call."""
         try:
-            response = requests.get(f"{self._base_url}/api/tags", timeout=5)
-            response.raise_for_status()
-            models = [m["name"] for m in response.json().get("models", [])]
-            if not any(self._model in m for m in models):
-                raise RuntimeError(
-                    f"Embedding model '{self._model}' not found in Ollama.\n"
-                    f"Available: {models}\n"
-                    f"Pull it: 'ollama pull {self._model}'"
-                )
-            logger.info("Ollama OK — embedding model '%s' ready (%d workers)", self._model, self._workers)
+            self._embed_single("connection test")
+            logger.info("OpenAI Embedder OK — model '%s' ready (%d workers)", self._model, self._workers)
             return True
-        except requests.exceptions.ConnectionError:
+        except Exception as e:
             raise RuntimeError(
-                f"Ollama not running at {self._base_url}.\n"
-                f"Start it: 'ollama serve'"
+                f"OpenAI embedding connection check failed: {e}\n"
+                f"Check your OPENAI_API_KEY in .env."
             )
 
     @property

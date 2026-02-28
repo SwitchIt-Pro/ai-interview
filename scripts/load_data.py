@@ -82,7 +82,7 @@ def main():
 
     print("\n" + "═" * 65)
     print("  SCOUT AI — DATA LOADER")
-    print("  Excel → Qwen-7B Embeddings → ChromaDB")
+    print("  Excel → OpenAI Embeddings → ChromaDB")
     print("═" * 65 + "\n")
 
     # ── 1. Read Excel ─────────────────────────────────────────────
@@ -100,12 +100,12 @@ def main():
     questions = reader.load_all(active_only=True)
     print(f"       ✓ {len(questions)} active questions loaded from Excel")
 
-    # ── 2. Verify Ollama / Qwen ───────────────────────────────────
-    print("\n  [2/4] Verifying Qwen-7B availability in Ollama...")
+    # ── 2. Verify OpenAI Embedder ─────────────────────────────────
+    print("\n  [2/4] Verifying OpenAI Embedder connection...")
     embedder = Embedder(workers=args.workers)  # None → uses .env EMBEDDING_WORKERS
     try:
         embedder.check_connection()
-        print(f"       ✓ Qwen-7B ready  |  parallel workers: {embedder._workers}")
+        print(f"       ✓ OpenAI Embedder ready  |  model: {embedder.model_name}  |  workers: {embedder._workers}")
     except RuntimeError as e:
         print(f"\n  ❌ {e}")
         sys.exit(1)
@@ -128,8 +128,8 @@ def main():
         _run_incremental_sync(store, questions)
     else:
         # Full load (first time, or after --force-reload)
-        print(f"  Embedding all {len(questions)} questions with Qwen-7B...")
-        print(f"  (Same Qwen model used for both embedding and interviewing)\n")
+        print(f"  Embedding all {len(questions)} questions with OpenAI text-embedding-3-small...")
+        print(f"  (This will call the OpenAI Embeddings API in parallel)\n")
         total = store.ingest_questions(questions)
         print(f"\n  ✅ Done! {total} documents loaded into ChromaDB")
         print(f"     Total in collection: {store.count}")
@@ -193,7 +193,7 @@ def _run_incremental_sync(store: VectorStore, excel_questions: list) -> None:
     # ── Embed and add new questions ────────────────────────────────
     if new_ids:
         new_questions = [excel_map[qid] for qid in sorted(new_ids)]
-        print(f"\n  Embedding {len(new_questions)} new question(s) with Qwen-7B...")
+        print(f"\n  Embedding {len(new_questions)} new question(s) with OpenAI Embedder...")
         print(f"  (Skipping {len(unchanged)} unchanged rows — no re-embedding needed)\n")
         total = store.ingest_questions(new_questions)
         print(f"\n  ✓ Added {total} new question(s) to ChromaDB")
