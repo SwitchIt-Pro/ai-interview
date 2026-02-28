@@ -27,7 +27,7 @@ from .config import config
 from .vector_store import VectorStore
 from .rag_engine import RAGEngine
 from .embedder import Embedder
-from .openai_interviewer import QwenInterviewer
+from .openai_interviewer import OpenAIInterviewer
 from .openai_evaluator import OpenAIMetaEvaluator
 from .interview_state import InterviewStateManager
 from .candidate_simulator import CandidateSimulator
@@ -65,7 +65,7 @@ class InterviewRunner:
     def __init__(self):
         self._store: Optional[VectorStore] = None
         self._engine: Optional[RAGEngine] = None
-        self._qwen: Optional[QwenInterviewer] = None
+        self._interviewer: Optional[OpenAIInterviewer] = None
         self._meta_evaluator: Optional[OpenAIMetaEvaluator] = None
         self._simulator: Optional[CandidateSimulator] = None
         self._state_mgr = InterviewStateManager(max_history=config.MAX_HISTORY)
@@ -122,7 +122,7 @@ class InterviewRunner:
         # ── Step 2: initialize OpenAI Interviewer ─────────────────
         print("\n  [2/3] Connecting to OpenAI Interviewer...")
         self._engine = RAGEngine(self._store)
-        self._qwen = QwenInterviewer()
+        self._interviewer = OpenAIInterviewer()
         print(f"       ✓ OpenAI interviewer ready ({config.OPENAI_INTERVIEWER_MODEL})")
 
         # ── Step 3: initialize OpenAI meta-evaluator + simulator ───
@@ -362,9 +362,9 @@ class InterviewRunner:
                 f"All {len(candidates)} retrieved questions have already been asked."
             )
 
-        # ── 2. Qwen: Select the best question ─────────────────────
+        # ── 2. AI: Select the best question ───────────────────────
         context = self._state_mgr.get_context_string()
-        selected = self._qwen.select_question(
+        selected = self._interviewer.select_question(
             candidates=candidates,
             role=self._role,
             experience_level=self._level,
@@ -403,7 +403,7 @@ class InterviewRunner:
 
         # ── 4. Qwen: Score the response ───────────────────────────
         print("\n  ⏳ AI is scoring the response...")
-        scoring = self._qwen.score_response(
+        scoring = self._interviewer.score_response(
             question_text=question_text,
             candidate_response=candidate_response,
             evaluation_area=area,

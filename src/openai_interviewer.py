@@ -33,15 +33,12 @@ logger = logging.getLogger(__name__)
 _MAX_RETRIES = 3
 
 
-class QwenClient:
+class OpenAIClient:
     """
-    OpenAI chat client used by the AI Interviewer.
-
-    NOTE: The class is kept as QwenClient for backward compatibility with
-    the rest of the codebase. Internally it now uses OpenAI GPT instead of Ollama/Qwen.
+    Raw OpenAI chat client used by the AI Interviewer.
 
     Used by:
-      - QwenInterviewer  (question selection, rephrasing, scoring)
+      - OpenAIInterviewer  (question selection, rephrasing, scoring)
     """
 
     def __init__(
@@ -60,7 +57,7 @@ class QwenClient:
         self._temperature = temperature if temperature is not None else config.OPENAI_INTERVIEWER_TEMPERATURE
 
         logger.info(
-            "AI Interviewer (OpenAI) ready — model: %s",
+            "OpenAIClient ready — model: %s",
             self._model,
         )
 
@@ -159,12 +156,9 @@ class QwenClient:
 # AI Interviewer — Question Selection + Scoring
 # ──────────────────────────────────────────────────────────────────
 
-class QwenInterviewer:
+class OpenAIInterviewer:
     """
     OpenAI acts as the AI interviewer.
-
-    NOTE: Class kept as QwenInterviewer for backward compatibility.
-    Internally it now uses OpenAI GPT via QwenClient.
 
     Two tasks:
       1. select_question()  — RAG candidates → AI picks best + rephrases
@@ -174,7 +168,7 @@ class QwenInterviewer:
 
     Usage
     -----
-    interviewer = QwenInterviewer()
+    interviewer = OpenAIInterviewer()
 
     selected = interviewer.select_question(
         candidates=[...],          # from ChromaDB
@@ -198,8 +192,8 @@ class QwenInterviewer:
     # → {raw_score, signal_strength, rationale, strengths, weaknesses}
     """
 
-    def __init__(self, qwen_client: Optional[QwenClient] = None):
-        self._qwen = qwen_client or QwenClient()
+    def __init__(self, client: Optional[OpenAIClient] = None):
+        self._client = client or OpenAIClient()
 
     # ── 1. Question Selection from RAG Candidates ─────────────────
 
@@ -299,7 +293,7 @@ Return ONLY this JSON (no other text):
 }}
 ```"""
 
-        raw, elapsed = self._qwen.prompt(prompt)
+        raw, elapsed = self._client.prompt(prompt)
         logger.debug("AI Interviewer select_question took %.2fs", elapsed)
         print(f"     ⏱  AI question selection: [{elapsed:.1f}s]")
 
@@ -429,7 +423,7 @@ Return ONLY this JSON:
 }}
 ```"""
 
-        raw, elapsed = self._qwen.prompt(prompt, temperature=0.3)
+        raw, elapsed = self._client.prompt(prompt, temperature=0.3)
         logger.debug("AI score_response took %.2fs", elapsed)
         print(f"     ⏱  AI scoring: [{elapsed:.1f}s]")
 
