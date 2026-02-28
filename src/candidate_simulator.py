@@ -136,6 +136,7 @@ class CandidateSimulator:
 
         for attempt in range(3):
             try:
+                t_start = time.perf_counter()
                 response = self._client.chat.completions.create(
                     model=self._model,
                     messages=[
@@ -144,6 +145,9 @@ class CandidateSimulator:
                     ],
                     temperature=0.85,   # higher = more varied, human-like answers
                 )
+                elapsed = time.perf_counter() - t_start
+                logger.debug("CandidateSimulator OpenAI call took %.2fs", elapsed)
+                print(f"     ⏱  OpenAI candidate simulation: [{elapsed:.1f}s]")
                 return response.choices[0].message.content.strip()
 
             except Exception as e:

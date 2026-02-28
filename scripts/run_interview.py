@@ -54,11 +54,9 @@ from src.report_generator import ReportGenerator
 # ── Default area configuration ────────────────────────────────────
 
 DEFAULT_AREAS = [
-    {"area": "Objection Handling",    "weight": 25, "questions": 1, "min_score": 6.0, "non_negotiable": True},
-    {"area": "Communication Skills",  "weight": 20, "questions": 1},
-    {"area": "Pipeline Management",   "weight": 20, "questions": 1},
-    {"area": "Client Relationship",   "weight": 20, "questions": 1},
-    {"area": "Resilience & Grit",     "weight": 15, "questions": 1},
+    {"area": "Objection Handling",   "weight": 34, "questions": 1, "min_score": 6.0, "non_negotiable": True},
+    {"area": "Communication Skills", "weight": 33, "questions": 1},
+    {"area": "Pipeline Management",  "weight": 33, "questions": 1},
 ]
 
 

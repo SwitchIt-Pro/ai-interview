@@ -66,7 +66,7 @@ class QwenClient:
         self,
         messages: List[Dict[str, str]],
         temperature: Optional[float] = None,
-    ) -> str:
+    ) -> tuple:
         """
         Send messages to Qwen-7B via Ollama chat endpoint.
 
@@ -77,7 +77,7 @@ class QwenClient:
 
         Returns
         -------
-        str: Qwen's response text
+        tuple: (response_text: str, elapsed_seconds: float)
         """
         temp = temperature if temperature is not None else self._temperature
         payload = {
@@ -91,17 +91,19 @@ class QwenClient:
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
+                t_start = time.perf_counter()
                 resp = requests.post(
                     self._chat_endpoint,
                     json=payload,
                     timeout=180,  # Qwen-7B can be slow on first inference
                 )
+                elapsed = time.perf_counter() - t_start
                 resp.raise_for_status()
                 data = resp.json()
                 content = data.get("message", {}).get("content", "")
                 if not content:
                     raise RuntimeError(f"Empty response from Qwen: {data}")
-                return content.strip()
+                return content.strip(), elapsed
 
             except requests.exceptions.ConnectionError as e:
                 last_exc = e
@@ -130,8 +132,8 @@ class QwenClient:
             f"Make sure Ollama is running: 'ollama serve'"
         )
 
-    def prompt(self, user_text: str, system: Optional[str] = None, temperature: Optional[float] = None) -> str:
-        """Single-turn convenience wrapper."""
+    def prompt(self, user_text: str, system: Optional[str] = None, temperature: Optional[float] = None) -> tuple:
+        """Single-turn convenience wrapper. Returns (response_text, elapsed_seconds)."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -300,7 +302,9 @@ Return ONLY this JSON (no other text):
 }}
 ```"""
 
-        raw = self._qwen.prompt(prompt)
+        raw, elapsed = self._qwen.prompt(prompt)
+        logger.debug("Qwen select_question took %.2fs", elapsed)
+        print(f"     ⏱  Qwen question selection: [{elapsed:.1f}s]")
 
         try:
             idx, question, rephrased, reason = self._parse_selection(raw, candidates)
@@ -428,7 +432,9 @@ Return ONLY this JSON:
 }}
 ```"""
 
-        raw = self._qwen.prompt(prompt, temperature=0.3)
+        raw, elapsed = self._qwen.prompt(prompt, temperature=0.3)
+        logger.debug("Qwen score_response took %.2fs", elapsed)
+        print(f"     ⏱  Qwen scoring: [{elapsed:.1f}s]")
 
         try:
             return self._parse_score(raw)

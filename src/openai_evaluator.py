@@ -314,7 +314,9 @@ Return ONLY this JSON:
 }}
 ```"""
 
-        raw = self._call_openai(prompt)
+        raw, elapsed = self._call_openai(prompt)
+        logger.debug("OpenAI question quality eval took %.2fs", elapsed)
+        print(f"     ⏱  OpenAI question quality eval: [{elapsed:.1f}s]")
         try:
             data = self._parse_json(raw)
             return QuestionQualityResult(
@@ -407,7 +409,9 @@ Return ONLY this JSON:
 }}
 ```"""
 
-        raw = self._call_openai(prompt)
+        raw, elapsed = self._call_openai(prompt)
+        logger.debug("OpenAI scoring accuracy eval took %.2fs", elapsed)
+        print(f"     ⏱  OpenAI scoring accuracy eval: [{elapsed:.1f}s]")
         try:
             data = self._parse_json(raw)
             openai_score = float(data["openai_score"])
@@ -512,7 +516,9 @@ Write in a professional but direct tone. Be specific — reference actual turn d
 Keep the total response to 200-300 words."""
 
         try:
-            raw = self._call_openai(prompt)
+            raw, elapsed = self._call_openai(prompt)
+            logger.debug("OpenAI Qwen performance review took %.2fs", elapsed)
+            print(f"     ⏱  OpenAI Qwen performance review: [{elapsed:.1f}s]")
             return raw.strip()
         except Exception as e:
             logger.error("Qwen performance review failed: %s", e)
@@ -520,20 +526,22 @@ Keep the total response to 200-300 words."""
 
     # ── OpenAI API Call ───────────────────────────────────────────
 
-    def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI with retry logic."""
+    def _call_openai(self, prompt: str) -> tuple:
+        """Call OpenAI with retry logic. Returns (content, elapsed_seconds)."""
         from openai import RateLimitError, APIConnectionError, APIStatusError
 
         last_exc: Optional[Exception] = None
 
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
+                t_start = time.perf_counter()
                 response = self._client.chat.completions.create(
                     model=self._model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=self._temperature,
                 )
-                return response.choices[0].message.content.strip()
+                elapsed = time.perf_counter() - t_start
+                return response.choices[0].message.content.strip(), elapsed
 
             except RateLimitError as e:
                 last_exc = e
