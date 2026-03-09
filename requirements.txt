@@ -1,0 +1,30 @@
+# ─── Core ─────────────────────────────────────────────────────────────────────
+torch>=2.3.0
+torchaudio>=2.3.0
+torchvision>=0.18.0
+
+# ─── STT ──────────────────────────────────────────────────────────────────────
+faster-whisper>=1.0.3          # Whisper Small — fast CTranslate2 backend
+
+# ─── LLM ──────────────────────────────────────────────────────────────────────
+transformers>=4.43.0
+bitsandbytes>=0.43.0           # 4-bit quantization for RTX 1650
+accelerate>=0.30.0
+sentencepiece>=0.2.0
+
+# ─── TTS ──────────────────────────────────────────────────────────────────────
+kokoro>=0.9.4                  # Kokoro-82M TTS — lightweight and fast
+sounddevice>=0.4.6             # Audio playback / capture
+soundfile>=0.12.1
+
+# ─── VAD ──────────────────────────────────────────────────────────────────────
+# Silero VAD is loaded via torch.hub — no pip install needed
+# But we need onnxruntime as a backend option:
+onnxruntime>=1.18.0
+
+# ─── Async & Utils ────────────────────────────────────────────────────────────
+numpy>=1.26.0
+asyncio-throttle>=1.0.2
+
+# ─── Optional: CUDA 12.x wheels (install manually if needed) ──────────────────
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
