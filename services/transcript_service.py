@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 class TranscriptService:
     def __init__(self):
+        """
+        Sets up the Transcript Service.
+        Think of this as grabbing a fresh notepad and a pen right before the interview starts.
+        It creates a new text file named with today's date and time so we can save the conversation.
+        """
         os.makedirs(config.LOG_DIR, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.filepath = os.path.join(config.LOG_DIR, f"interview_{timestamp}.txt")
@@ -20,7 +25,11 @@ class TranscriptService:
         logger.info(f"Transcript will be saved to: {self.filepath}")
 
     def add(self, speaker: str, text: str):
-        """Add a turn to the transcript. speaker = 'AI' or 'Candidate'."""
+        """
+        Takes a single sentence or paragraph from either the AI or the Candidate and writes it down.
+        It adds a timestamp (e.g., [14:05:01]) so we know exactly when it was said, and then safely
+        appends it to our text file.
+        """
         timestamp = datetime.now().strftime("%H:%M:%S")
         entry = f"[{timestamp}] {speaker}: {text}"
         self._entries.append(entry)
@@ -31,7 +40,11 @@ class TranscriptService:
                 f.write(entry + "\n")
 
     def save(self):
-        """Force-save all entries (called at end of interview)."""
+        """
+        Finalizes and saves the entire interview log document.
+        Think of this as adding a nice header to our notepad and storing it securely 
+        in a file cabinet when the interview is completely finished.
+        """
         with open(self.filepath, "w", encoding="utf-8") as f:
             f.write(f"Interview Transcript — {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
             f.write("=" * 60 + "\n\n")

@@ -17,11 +17,19 @@ logger = logging.getLogger(__name__)
 
 class TTSService:
     def __init__(self):
+        """
+        Sets up the Text-to-Speech (TTS) service.
+        Think of this as giving our AI interviewer a vocal cord so it can actually speak out loud.
+        """
         self.pipeline = None
         self._load_model()
 
     def _load_model(self):
-        """Load Kokoro TTS pipeline."""
+        """
+        Loads the voice generation model (Kokoro) into memory.
+        This model is chosen because it runs very fast and sounds human-like, 
+        even on a basic graphics card, without taking extra space.
+        """
         logger.info(f"Loading TTS: Kokoro-82M (voice={config.TTS_VOICE})...")
         # 'a' = American English, 'b' = British English
         lang_code = "a"
@@ -30,9 +38,11 @@ class TTSService:
 
     def synthesize_stream(self, text_chunks):
         """
-        Accept a generator of text chunks, synthesize each chunk, play audio.
-        This runs in lock-step with the LLM streamer — 
-        starts speaking before LLM finishes generating.
+        Takes an incoming stream of text pieces (as they are being thought up by the AI brain) 
+        and instantly turns them into actual sound (audio).
+        
+        It plays the sound through the speakers immediately, keeping the conversation fast and natural 
+        without awkward pauses waiting for the full sentence to finish typing.
         """
         audio_buffer = []
 
@@ -58,7 +68,10 @@ class TTSService:
         return np.concatenate(audio_buffer) if audio_buffer else np.array([])
 
     def synthesize(self, text: str) -> np.ndarray:
-        """Synthesize full text and return numpy audio array."""
+        """
+        Takes a full, complete piece of text and turns it into one big chunk of audio data.
+        Unlike the stream version, this waits until the whole sentence is generated before returning the sound file.
+        """
         audio_chunks = []
         generator = self.pipeline(
             text,
@@ -72,11 +85,17 @@ class TTSService:
         return np.concatenate(audio_chunks) if audio_chunks else np.array([])
 
     def _play_audio(self, audio_np: np.ndarray):
-        """Play audio array through default speakers (blocking per-chunk)."""
+        """
+        A helper function that sends the constructed audio data straight to the computer's speakers to be played out loud.
+        It waits until the short audio clip is fully played before moving on.
+        """
         sd.play(audio_np, samplerate=config.TTS_SAMPLE_RATE)
         sd.wait()
 
     def stop(self):
-        """Interrupt current playback (called on user interruption)."""
+        """
+        Immediately stops any audio that is currently playing out loud.
+        Useful for when the user accidentally interrupts the AI and we need the AI to stop talking quickly.
+        """
         sd.stop()
         logger.debug("TTS playback interrupted.")

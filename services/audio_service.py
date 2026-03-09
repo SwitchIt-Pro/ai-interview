@@ -21,18 +21,29 @@ MAX_SILENCE_CHUNKS = int(700 / CHUNK_DURATION_MS)          # ~700ms silence
 
 class AudioCaptureService:
     def __init__(self):
+        """
+        Sets up the Audio Capture service.
+        Think of this as getting a microphone ready to record audio. We prepare a waiting line (queue) 
+        where small pieces of sound will wait to be processed, and get our internal states ready.
+        """
         self._audio_queue = queue.Queue()
         self._stream = None
         self._running = False
 
     def _callback(self, indata, frames, time_info, status):
-        """Called by sounddevice for each audio chunk."""
+        """
+        This is a hidden helper function called automatically every time the microphone captures a small piece of sound.
+        It simply takes that sound piece and puts it in our waiting line (queue) so we can process it later.
+        """
         if status:
             logger.warning(f"Audio input status: {status}")
         self._audio_queue.put(indata[:, 0].copy())  # Mono
 
     def start(self):
-        """Start microphone capture stream."""
+        """
+        Turns the microphone on.
+        It starts continuously listening and passing small, fast snippets of sound to our helper function to be saved.
+        """
         logger.info(f"Starting mic capture (SR={SAMPLE_RATE}Hz, chunk={CHUNK_DURATION_MS}ms)...")
         self._running = True
         self._stream = sd.InputStream(
@@ -46,7 +57,10 @@ class AudioCaptureService:
         logger.info("✓ Microphone active.")
 
     def stop(self):
-        """Stop microphone capture."""
+        """
+        Turns the microphone off.
+        It stops listening and safely closes the connection to the computer's audio system.
+        """
         self._running = False
         if self._stream:
             self._stream.stop()
@@ -54,7 +68,10 @@ class AudioCaptureService:
         logger.info("Microphone stopped.")
 
     def read_chunk(self, timeout: float = 1.0) -> np.ndarray | None:
-        """Read one audio chunk from the queue. Returns None on timeout."""
+        """
+        Grabs the next piece of sound from our waiting line (queue).
+        If the microphone hasn't picked up anything new within a short time limit (timeout), it gives up and returns nothing.
+        """
         try:
             return self._audio_queue.get(timeout=timeout)
         except queue.Empty:
@@ -62,13 +79,14 @@ class AudioCaptureService:
 
     def collect_speech_segment(self, vad_service, max_duration_sec: float = 30.0) -> np.ndarray:
         """
-        Collect audio until VAD detects end of speech (silence).
-        Returns the full speech segment as a float32 numpy array.
+        Listens to the microphone continuously and gathers all the sound into one big recording, but only when someone is actually talking.
         
-        Logic:
-          - Wait for speech to START (skip leading silence)
-          - Collect audio while speech is active
-          - Stop after MAX_SILENCE_CHUNKS of consecutive silence
+        How it works:
+        - It ignores silence until someone starts speaking.
+        - Once speech starts, it records everything.
+        - If the person stops talking and there's silence for a little bit, it assumes they're done and stops.
+        - It cuts off automatically if the recording gets too long (e.g., 30 seconds).
+        Returns the glued-together speech audio.
         """
         speech_started = False
         silence_count   = 0

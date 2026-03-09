@@ -19,11 +19,21 @@ SILERO_CHUNK = 512   # Exactly required by Silero at 16kHz
 
 class VADService:
     def __init__(self):
+        """
+        Sets up the Voice Activity Detection (VAD) service.
+        Think of this as preparing a listener whose only job is to hear if someone is currently speaking.
+        We start with empty placeholders for the model and utility tools.
+        """
         self.model = None
         self.utils = None
         self._load_model()
 
     def _load_model(self):
+        """
+        Loads the 'Silero VAD' AI model into the computer's standard memory (CPU).
+        This is like giving our listener their brain and training so they know what human speech sounds like.
+        We run it on CPU so it doesn't take up the limited space on the graphics card.
+        """
         logger.info("Loading VAD: Silero VAD (CPU)...")
         self.model, self.utils = torch.hub.load(
             repo_or_dir="snakers4/silero-vad",
@@ -36,8 +46,12 @@ class VADService:
 
     def is_speech(self, audio_chunk: np.ndarray, sample_rate: int = 16000) -> bool:
         """
-        Returns True if speech is detected.
-        Silero requires EXACTLY 512 samples — we split larger chunks and average.
+        Listens to a small slice of audio and guesses if it contains human speech.
+        
+        The model is very picky and insists on hearing exactly 512 tiny audio dots (samples) at a time.
+        If we give it a snippet that's too small, we pad it with silence.
+        If we give it a snippet that's too large, we chop it into chunks, ask the model about each piece,
+        and average out its answers to give a final 'Yes' or 'No'.
         """
         audio_chunk = audio_chunk.astype(np.float32)
 
@@ -58,6 +72,13 @@ class VADService:
         return avg_prob >= config.VAD_THRESHOLD
 
     def get_speech_timestamps(self, audio_np: np.ndarray, sample_rate: int = 16000):
+        """
+        Looks at a longer piece of audio and figures out the exact start and end times (timestamps) 
+        of when someone was talking.
+        
+        Like a timeline editor, it slices the audio, ignores small gaps of silence, and tells us 
+        the specific windows where actual speech happened.
+        """
         get_speech_ts = self.utils[0]
         tensor = torch.from_numpy(audio_np.astype(np.float32))
         timestamps = get_speech_ts(
@@ -71,6 +92,13 @@ class VADService:
         return timestamps
 
     def has_enough_speech(self, audio_np: np.ndarray, sample_rate: int = 16000, min_duration_ms: int = 300) -> bool:
+        """
+        Checks if the person spoke for a long enough time (by default at least 300 milliseconds).
+        
+        Sometimes there's just a tiny noise like a cough or a mic bump. This function uses the timestamps 
+        from the previous method to add up all the speaking time. If the total speaking time is 
+        longer than our minimum limit, it returns True, meaning "Yes, that was a real sentence or word."
+        """
         timestamps = self.get_speech_timestamps(audio_np, sample_rate)
         if not timestamps:
             return False

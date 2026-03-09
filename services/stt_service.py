@@ -15,11 +15,19 @@ logger = logging.getLogger(__name__)
 
 class STTService:
     def __init__(self):
+        """
+        Sets up the Speech-to-Text (STT) service.
+        Think of this as setting up a court reporter whose job is to listen to the audio and write down everything that is said verbatim.
+        """
         self.model = None
         self._load_model()
 
     def _load_model(self):
-        """Load Whisper Small with float16 to minimize VRAM."""
+        """
+        Loads the 'Whisper' AI model into the computer's memory.
+        This is like giving our reporter a very good dictionary and training on how words sound.
+        We load a smaller, optimized version (float16) to make sure it doesn't take up too much space on the graphics card (VRAM).
+        """
         logger.info("Loading STT model: whisper-small (float16)...")
         self.model = WhisperModel(
             "small",                        # ~500MB VRAM
@@ -30,8 +38,12 @@ class STTService:
 
     def transcribe(self, audio_np: np.ndarray) -> str:
         """
-        Transcribe a numpy audio array (float32, 16kHz mono).
-        Returns the transcribed text string.
+        Takes a piece of audio and turns it into text.
+        Returns the written transcript as a string.
+        
+        This function also has built-in "hallucination filters." Sometimes the AI "hears" things 
+        that aren't there (like thanking an imaginary audience when it's just silence). 
+        The filters block these common mistakes and ignore recordings that are too short to be real speech.
         """
         if audio_np is None or len(audio_np) == 0:
             return ""
@@ -68,7 +80,10 @@ class STTService:
         return text
 
     def transcribe_stream(self, audio_np: np.ndarray):
-        """Generator: yield text chunks as they are transcribed."""
+        """
+        Slowly reveals the transcribed text piece by piece (as a generator), just like live captions.
+        Instead of waiting for the entire audio to finish processing, it hands over each new word or phrase as soon as it figures it out.
+        """
         segments, _ = self.model.transcribe(
             audio_np,
             language=config.STT_LANGUAGE,
