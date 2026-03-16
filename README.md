@@ -1,122 +1,146 @@
 # Conversational AI Scout — RTX 1650 Edition
 
-Voice-to-voice AI interviewer optimized for **RTX 1650 (4GB VRAM)**.
+> A fully local, voice-to-voice AI interviewer for SwitchIt-Pro. No internet. No cloud. Runs on your own PC.
 
 ---
 
-## VRAM Budget
-| Component | Model | VRAM |
-|-----------|-------|------|
-| STT | Whisper Small (float16) | ~500MB |
-| LLM | Qwen2.5-1.5B Q4 | ~1.2GB |
-| TTS | Kokoro-82M | ~300MB |
-| OS + Overhead | — | ~2.0GB |
-| **Total** | | **~4.0GB ✓** |
+## 🧠 What Does This Project Do? (Plain English)
+
+This project creates an **AI-powered interviewer** that can talk to a job candidate completely on its own.
+
+Here's the simple idea:
+1. A candidate sits down and **speaks into a microphone**
+2. The AI **listens**, understands what they said, **thinks of a reply**, and **speaks back** — just like a real interviewer would
+3. The whole conversation is **saved as a text log** so a recruiter can review it later
+
+All of this happens **in real time**, on a single gaming PC (NVIDIA RTX 1650), with **no cloud subscription or internet connection needed**.
 
 ---
 
-## Project Structure
+## 🗣️ What Kind of Interviews Does It Conduct?
+
+The AI acts as a **friendly, professional Technical Interviewer** for a Round 1 screening call at SwitchIt-Pro. It follows this structure every time:
+
+| Step | What Happens |
+|------|--------------|
+| 1. Warm Introduction | The AI greets the candidate and asks them to introduce themselves |
+| 2. Resume / Experience | Asks about recent work or a project they are proud of |
+| 3. Basic Technical Question | Tests a simple concept related to the job |
+| 4. Intermediate Technical | Asks how they'd tackle a common technical problem |
+| 5. Advanced Technical | Digs into deeper topics like system design or edge cases |
+| 6. Professional Closing | Asks if the candidate has questions, then wraps up warmly |
+
+The AI asks **one question at a time**, waits for the full answer, uses friendly phrases like *"That makes sense!"*, and keeps responses short (2–3 sentences max).
+
+---
+
+## ⚙️ How Does It Work? (The Pipeline — Simply Explained)
+
+Think of the system as an assembly line with 6 workers:
+
 ```
-conversational-ai-scouts/
-├── main.py                  # Entry point
-├── config.py                # All settings (tweak here)
-├── requirements.txt
-├── pipeline/
-│   ├── __init__.py
-│   └── orchestrator.py      # Core streaming loop
-├── services/
-│   ├── __init__.py
-│   ├── audio_service.py     # Mic capture
-│   ├── vad_service.py       # Silero VAD (CPU)
-│   ├── stt_service.py       # Whisper Small (CUDA)
-│   ├── llm_service.py       # Qwen2.5-1.5B 4-bit (CUDA)
-│   └── tts_service.py       # Kokoro-82M (CUDA)
-├── logs/                    # Auto-created, interview transcripts saved here
-└── frontend/                # Reserved for future Web UI
+[You speak] → [Listener] → [Transcriber] → [AI Brain] → [Voice Box] → [Recorder]
 ```
+
+| Worker | Tech Used | Job |
+|--------|-----------|-----|
+| 🎙️ Audio Service | sounddevice | Picks up your voice from the microphone |
+| 👂 VAD Service | Silero VAD | Decides when you START and STOP talking (ignores background noise) |
+| 📝 STT Service | Whisper Small | Converts your speech into written text |
+| 🧠 LLM Service | Qwen2.5-1.5B | Reads the text and thinks up the AI's reply |
+| 🔊 TTS Service | Kokoro-82M | Turns the AI's words into a human-sounding voice and plays it |
+| 📂 Transcript Service | Python file I/O | Quietly saves the entire conversation to a text file |
 
 ---
 
-## Setup
+## 💾 Why Does It Run on a Budget GPU?
 
-### 1. Prerequisites
-- Windows 11 / Ubuntu 22.04+
-- Python 3.11
-- CUDA 12.1+ drivers ([download](https://developer.nvidia.com/cuda-downloads))
-- RTX 1650 with latest NVIDIA driver (545+)
+The project was carefully designed to run on a **4 GB VRAM** GPU (RTX 1650) by picking smaller, optimised versions of each AI model:
 
-### 2. Install PyTorch (CUDA 12.1)
+| What It Does | Model Chosen | Memory Used |
+|--------------|-------------|-------------|
+| Hear your speech | Whisper Small | ~500 MB |
+| Think & reply | Qwen2.5-1.5B (4-bit compressed) | ~1.2 GB |
+| Speak back to you | Kokoro-82M | ~300 MB |
+| Windows + Python overhead | — | ~2.0 GB |
+| **Total** | | **~4.0 GB ✓** |
+
+---
+
+## 📁 What's in Each File?
+
+| File / Folder | What It Is |
+|---------------|-----------|
+| `main.py` | The **on/off switch** — starts the server and waits for a frontend to connect |
+| `config.py` | The **settings panel** — change voices, AI behaviour, and thresholds here |
+| `requirements.txt` | The **shopping list** of all Python libraries needed |
+| `pipeline/orchestrator.py` | The **conductor** — coordinates all services from start to finish |
+| `services/audio_service.py` | The **ears** — captures mic audio |
+| `services/vad_service.py` | The **attention filter** — knows when you're actually talking |
+| `services/stt_service.py` | The **court reporter** — types out what you said |
+| `services/llm_service.py` | The **brain** — generates the AI's response |
+| `services/tts_service.py` | The **vocal cords** — speaks the AI's response out loud |
+| `services/transcript_service.py` | The **filing cabinet** — logs every word spoken |
+| `logs/` | Where completed interview transcripts are saved automatically |
+| `frontend/` | Reserved for a future web interface (not built yet) |
+
+---
+
+## 🚀 How to Run It
+
+### Step 1 — Install PyTorch (GPU version)
 ```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-### 3. Install project dependencies
+### Step 2 — Install everything else
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. First run (models auto-download ~2GB total)
+### Step 3 — Start the server
 ```bash
 python main.py
 ```
-Models are cached in `~/.cache/huggingface/` after first download.
+> ℹ️ The first run will download AI models (~2 GB total). After that, they're cached locally and it starts instantly.
 
 ---
 
-## Running
-```bash
-python main.py
-```
-- Speak naturally into your mic
-- AI will respond via speakers
-- Press **Ctrl+C** to end the interview
-- Transcript is auto-saved to `logs/interview_YYYYMMDD_HHMMSS.txt`
+## 🎛️ Things You Can Tweak (in `config.py`)
+
+| Setting | What It Changes |
+|---------|----------------|
+| `VAD_SILENCE_MS` | How long of silence before the AI decides you've finished talking |
+| `LLM_MAX_NEW_TOKENS` | How long the AI's answers can be |
+| `TTS_VOICE` | The voice character (`af_sarah`, `am_adam`, `bf_emma`) |
+| `SYSTEM_PROMPT` | The AI's personality and interview script |
 
 ---
 
-## Tuning for Your Setup
-
-| Setting | File | What it does |
-|---------|------|--------------|
-| `VAD_SILENCE_MS` | config.py | How long to wait after you stop talking |
-| `LLM_MAX_NEW_TOKENS` | config.py | Longer = more detailed AI answers |
-| `TTS_VOICE` | config.py | `af_sarah`, `am_adam`, `bf_emma` |
-| `SYSTEM_PROMPT` | config.py | Change interview style/persona |
-
----
-
-## Why Different from the PDF
-
-The PDF targets RTX 3090/4090 (24GB). For RTX 1650 (4GB):
-
-| PDF Spec | This Project | Reason |
-|----------|-------------|--------|
-| Canary Qwen 2.5B | Whisper Small | 2.5B STT needs 3GB+ alone |
-| Qwen3-7B Instruct | Qwen2.5-1.5B Q4 | 7B needs 8GB+ even quantized |
-| CosyVoice 0.5B | Kokoro-82M | Kokoro is lighter, easier install |
-| LiveKit + Pipecat | Direct sounddevice | Full WebRTC overkill for local use |
-
----
-
-## Troubleshooting
+## 🛠️ Common Problems
 
 **"CUDA out of memory"**
-```python
-# In config.py, reduce:
-LLM_MAX_NEW_TOKENS = 100   # was 200
-```
+→ Open `config.py` and lower `LLM_MAX_NEW_TOKENS` from `200` to `100`
 
-**Models downloading slowly**
-- First run only. Subsequent runs use cache.
-
-**No audio input/output**
+**No mic / speaker audio**
 ```bash
 python -c "import sounddevice as sd; print(sd.query_devices())"
-# Find your device index, then in audio_service.py add: device=YOUR_INDEX
 ```
+→ Find your device index and set it in `audio_service.py`
 
-**bitsandbytes not working on Windows**
-```bash
-pip install bitsandbytes --prefer-binary
-# Or use: https://github.com/jllllll/bitsandbytes-windows-webui
+**Models downloading slowly**
+→ This only happens on the very first run. After that, they load from your local cache.
+
+---
+
+## 📄 Output
+
+Every interview session is automatically saved to:
 ```
+logs/interview_YYYYMMDD_HHMMSS.txt
+```
+This file contains a timestamped back-and-forth log of everything the candidate and AI said.
+
+---
+
+*SwitchIt-Pro · conversational-ai-scouts · RTX 1650 Edition*
