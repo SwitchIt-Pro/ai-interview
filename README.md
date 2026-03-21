@@ -2,6 +2,9 @@
 
 A RAG-powered AI interview engine where **Qwen-7B** acts as the interviewer and **OpenAI** meta-evaluates Qwen's performance.
 
+768 dimensions of vectors
+Cosine similarity (hnsw:space: cosine)
+
 ---
 
 ## Architecture
