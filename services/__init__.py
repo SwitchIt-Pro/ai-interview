@@ -4,6 +4,7 @@ from .tts_service import TTSService
 from .vad_service import VADService
 from .audio_service import AudioCaptureService
 from .transcript_service import TranscriptService
+from .rag_service import RAGService
 
 __all__ = [
     "STTService",
@@ -12,4 +13,5 @@ __all__ = [
     "VADService",
     "AudioCaptureService",
     "TranscriptService",
+    "RAGService",
 ]

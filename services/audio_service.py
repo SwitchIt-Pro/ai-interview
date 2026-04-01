@@ -77,7 +77,7 @@ class AudioCaptureService:
         except queue.Empty:
             return None
 
-    def collect_speech_segment(self, vad_service, max_duration_sec: float = 30.0) -> np.ndarray:
+    def collect_speech_segment(self, vad_service, max_duration_sec: float = 45.0) -> np.ndarray:
         """
         Listens to the microphone continuously and gathers all the sound into one big recording, but only when someone is actually talking.
         

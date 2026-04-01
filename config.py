@@ -73,6 +73,29 @@ RULES:
 - If the candidate mentions a fact, skill, or experience you are not sure about, do NOT invent details. Instead, ask a follow-up question to learn more from them directly.
 - Stay strictly within the interview flow. If something seems off or unclear, ask the candidate to clarify."""
 
+# ─── RAG (Retrieval-Augmented Generation) ────────────────────────────────────
+# Controls how the conversational AI queries the scout_ai_interviewer vector DB.
+# At interview start the LLM fetches a structured question plan from ChromaDB:
+#   Q1 = intro, Q2–Q(N-1) = role-specific domain questions, QN = outro
+RAG_ENABLED          = True          # Set False to disable RAG entirely
+
+# Total number of questions to ask per interview (min 3, max 10).
+# Breakdown:  1 intro  +  (INTERVIEW_NUM_QUESTIONS - 2) domain  +  1 outro
+INTERVIEW_NUM_QUESTIONS = 6          # 1 intro + 3 domain + 1 outro
+
+# Candidate context — set these to match the interview being conducted.
+# These filters are sent to ChromaDB so only relevant questions are retrieved.
+# Common roles: "Software Engineer", "Sales Executive", "Data Scientist", etc.
+RAG_CANDIDATE_ROLE     = "Software Engineer"
+
+# Industry filter — set to None to search across all industries.
+# Common values: "Technology", "Finance", "Healthcare", "Retail", None
+RAG_CANDIDATE_INDUSTRY = None          # e.g. "Technology" or None for all
+
+# Experience level filter — set to None to search across all levels.
+# Common values: "Junior", "Mid-level", "Senior", None
+RAG_CANDIDATE_LEVEL    = None          # e.g. "Mid-level" or None for all levels
+
 # ─── Logging ─────────────────────────────────────────────────────────────────
 LOG_DIR       = "logs"
 LOG_LEVEL     = "INFO"
