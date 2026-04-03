@@ -3,15 +3,8 @@ src/embedder.py
 ---------------
 Generates text embeddings using nomic-embed-text via Ollama — with PARALLEL requests.
 
-MODEL SEPARATION:
-  nomic-embed-text  →  embeddings ONLY (fast, dedicated, used here)
-  qwen2.5:7b        →  interviewer ONLY (question selection + scoring in qwen_interviewer.py)
-  gpt-4o-mini       →  meta-evaluator ONLY (OpenAI audits Qwen in openai_evaluator.py)
-
-SPEED:
-  nomic-embed-text is a 274 MB dedicated embedding model.
-  It is ~10-20x faster than Qwen-7B for this task.
-  With 8 parallel workers: ~3-10 minutes for 3,691 questions.
+Used by the VectorDB sync service to embed question text before
+storing in ChromaDB.
 
 Setup:
   ollama pull nomic-embed-text
@@ -39,7 +32,7 @@ _MAX_RETRIES = 3
 
 class Embedder:
     """
-    Generates embeddings using Qwen-7B via Ollama — with parallel requests.
+    Generates embeddings via Ollama — with parallel requests.
 
     Parallel embedding: instead of embedding one text at a time (slow),
     we send `workers` requests simultaneously to Ollama. This gives
@@ -59,8 +52,6 @@ class Embedder:
         base_url: Optional[str] = None,
         workers: Optional[int] = None,
     ):
-        # Uses EMBEDDING_MODEL (nomic-embed-text), NOT QWEN_MODEL.
-        # Qwen remains strictly the interviewer in qwen_interviewer.py.
         self._model    = model    or config.EMBEDDING_MODEL
         self._base_url = (base_url or config.OLLAMA_BASE_URL).rstrip("/")
         self._endpoint = f"{self._base_url}/api/embeddings"
@@ -79,7 +70,7 @@ class Embedder:
         show_progress: bool = False,
     ) -> List[List[float]]:
         """
-        Encode a list of texts into embedding vectors using Qwen-7B.
+        Encode a list of texts into embedding vectors via Ollama.
 
         Uses a ThreadPoolExecutor to send `workers` concurrent requests
         to Ollama, dramatically reducing total embedding time.
@@ -184,7 +175,7 @@ class Embedder:
 
     def _embed_single(self, text: str) -> List[float]:
         """
-        POST to Ollama /api/embeddings for one text using Qwen-7B.
+        POST to Ollama /api/embeddings for one text.
         Thread-safe — each call creates its own requests session.
         Retries up to 3 times on transient errors.
         """

@@ -1,180 +1,154 @@
-# Scout AI Interviewer
+# Scout AI — VectorDB Sync Service
 
-A RAG-powered AI interview engine where **Qwen-7B** acts as the interviewer and **OpenAI** meta-evaluates Qwen's performance.
+A single-purpose service that keeps a **ChromaDB** vector database in sync with an Excel question store (`questions_store.xlsx`). Uses **nomic-embed-text** via **Ollama** for generating embeddings.
 
-768 dimensions of vectors
-Cosine similarity (hnsw:space: cosine)
+## What It Does
 
----
+- **Watches** `questions_store.xlsx` for changes (file hash polling)
+- **Adds** new rows → generates embeddings via Ollama → inserts into ChromaDB
+- **Removes** deleted rows → deletes from ChromaDB
+- **Skips** unchanged rows (no re-embedding needed)
 
 ## Architecture
 
 ```
-Excel Questions Store
+questions_store.xlsx
         │
-        ▼
-[Qwen-7B Embedder]          ← Same Qwen model generates embeddings
-        │
-        ▼
-   ChromaDB                 ← Vector database (cosine similarity)
-        │
-        ▼ (RAG retrieval)
-[Qwen-7B Interviewer]       ← Qwen reads from ChromaDB, selects & asks questions
-        │
-        ├─► Selects best question from RAG candidates
-        ├─► Optionally rephrases question to fit conversation
-        └─► Scores candidate response (0–10 with rationale)
-                │
-                ▼
-[OpenAI Meta-Evaluator]     ← OpenAI evaluates Qwen's work
-        │
-        ├─► Was Qwen's question appropriate? (quality audit)
-        └─► Was Qwen's scoring accurate? (scoring audit)
+        ▼  (file hash change detected)
+  ExcelQuestionReader  →  diff question IDs
+        │                       │
+        ▼                       ▼
+  New rows → Embedder (Ollama/nomic-embed-text) → ChromaDB (upsert)
+  Removed rows → ChromaDB (delete)
 ```
 
-### Key Design Decisions
+## Prerequisites
 
-| Component | Model | Role |
-|-----------|-------|------|
-| **Embeddings** | `qwen2.5:7b` (Ollama) | Generates question embeddings stored in ChromaDB |
-| **Interviewer** | `qwen2.5:7b` (Ollama) | Reads from ChromaDB via RAG, selects & asks questions, scores responses |
-| **Meta-Evaluator** | `gpt-4o-mini` (OpenAI) | Evaluates Qwen's question quality + scoring accuracy |
-
-**Qwen-7B is used for BOTH embeddings and interviewing** — this ensures the semantic space used for retrieval is aligned with the model doing the querying.
-
-**OpenAI only evaluates Qwen** — it does NOT conduct the interview. It audits whether Qwen:
-1. Asked appropriate, well-calibrated questions
-2. Scored responses fairly and accurately
-
----
+1. **Python 3.10+**
+2. **Ollama** running locally:
+   ```bash
+   ollama serve
+   ollama pull nomic-embed-text
+   ```
 
 ## Setup
 
-### Prerequisites
-
 ```bash
-# 1. Install Ollama and pull Qwen-7B
-ollama pull qwen2.5:7b
-ollama serve
-
-# 2. Install Python dependencies
+cd scout_ai_interviewer
 pip install -r requirements.txt
 ```
 
-### Configuration
+## Usage
 
-Edit `.env`:
-
-```env
-OPENAI_API_KEY=sk-proj-...      # For meta-evaluation only
-QWEN_MODEL=qwen2.5:7b           # Qwen model (embeddings + interviewer)
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-### Data Setup
-
-Put `questions_store.xlsx` in the `data/` folder, then:
-
+### Sync Service (watch mode — auto-syncs on file changes)
 ```bash
-# Load questions into ChromaDB (run ONCE)
-python scripts/load_data.py
-
-# Verify the load
-python scripts/inspect_db.py
+python -m src.sync_service
 ```
 
----
-
-## Running an Interview
-
+### Single sync pass (run once and exit)
 ```bash
-# Default (Sales Executive, Mid-level)
-python scripts/run_interview.py
-
-# Custom role and areas
-python scripts/run_interview.py \
-    --role "Account Manager" \
-    --level "Senior" \
-    --areas "Objection Handling:25:2:6:yes" \
-            "Communication Skills:20:2::no" \
-            "Pipeline Management:20:2" \
-            "Client Relationship:20:2" \
-            "Resilience:15:2"
-
-# Without OpenAI meta-evaluation (faster, no cost)
-python scripts/run_interview.py --no-meta-eval
+python -m src.sync_service --once
 ```
 
-### Area Format
-
-```
-"AREA_NAME:WEIGHT:QUESTIONS:MIN_SCORE:NON_NEGOTIABLE"
-```
-
-| Field | Example | Description |
-|-------|---------|-------------|
-| `AREA_NAME` | `Objection Handling` | Evaluation area (must match Excel data) |
-| `WEIGHT` | `25` | Percentage weight (all must sum to 100) |
-| `QUESTIONS` | `2` | Number of questions to ask for this area |
-| `MIN_SCORE` | `6` | Minimum acceptable score (leave empty for none) |
-| `NON_NEGOTIABLE` | `yes` | Whether breach triggers a hard alert |
-
----
-
-## Output
-
-After each turn, you see:
-
-```
-🤖 Qwen: How do you typically handle a prospect who pushes back on pricing?
-👤 You: I start by understanding the underlying concern...
-
-📊 Qwen Score: 7.5/10  ✅  [STRONG]
-   Rationale: Candidate showed structured objection handling...
-   Strengths: Clear framework, empathy demonstrated
-   Weaknesses: Could be more specific on ROI calculation
-
-⏳ OpenAI is meta-evaluating Qwen's performance...
-──────────────────────────────────────────────────────────────
-  OPENAI META-EVALUATOR — Turn 1
-──────────────────────────────────────────────────────────────
-  ✅ Question Quality: APPROVED (Overall: 8.2/10 | Relevance: 9.0 | ...)
-     Feedback: The question directly tests objection handling...
-
-  ✅ Scoring Accuracy: ACCURATE (Qwen: 7.5/10 | OpenAI: 8.0/10 | Δ=+0.5)
-     Assessment: Qwen's score is consistent with the response quality...
-──────────────────────────────────────────────────────────────
+### Check status (Excel vs ChromaDB diff)
+```bash
+python -m src.sync_service --status
 ```
 
-Final reports saved to `reports/`:
-- `session_TIMESTAMP.json` — full structured data
-- `report_TIMESTAMP.txt` — recruiter-readable report
+### Force reload (wipe + re-embed everything)
+```bash
+python -m src.sync_service --force-reload
+```
 
----
+### Manual load (legacy CLI)
+```bash
+python scripts/load_data.py               # Full load
+python scripts/load_data.py --sync        # Incremental sync
+python scripts/load_data.py --summary     # Excel stats
+python scripts/load_data.py --delete      # Wipe ChromaDB
+```
+
+### Inspect ChromaDB
+```bash
+python scripts/inspect_db.py                                    # Collection stats
+python scripts/inspect_db.py --search "objection handling"      # Semantic search
+python scripts/inspect_db.py --role "Sales Executive"           # Filter by role
+python scripts/inspect_db.py --id Q0001                         # Lookup by ID
+```
+
+## Testing
+
+### 1. Check current status
+```bash
+python -m src.sync_service --status
+```
+Shows Excel rows vs ChromaDB documents and whether they are in sync.
+
+### 2. Test adding rows
+1. Open `data/questions_store.xlsx`
+2. Add a new row at the bottom (e.g., ID: `Q9999`, fill in question text and other fields)
+3. Save and close the Excel file
+4. Run a single sync:
+   ```bash
+   python -m src.sync_service --once
+   ```
+5. Output should show **"Added 1"** — the new row was embedded and inserted
+
+### 3. Test removing rows
+1. Open `data/questions_store.xlsx`
+2. Delete the row you just added (or any row)
+3. Save and close
+4. Run sync:
+   ```bash
+   python -m src.sync_service --once
+   ```
+5. Output should show **"Removed 1"** — the deleted row was removed from ChromaDB
+
+### 4. Test watch mode (auto-sync)
+1. Start the watcher:
+   ```bash
+   python -m src.sync_service
+   ```
+2. It will print "Watching for changes..."
+3. Open the Excel file, add or remove a row, save it
+4. Within ~10 seconds the service auto-detects the change and syncs
+5. Press `Ctrl+C` to stop
+
+### 5. Verify with the inspector
+```bash
+python scripts/inspect_db.py --id Q9999           # Check if the row was added
+python scripts/inspect_db.py --search "teamwork"   # Semantic search
+```
+
+## Configuration (.env)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model in Ollama |
+| `EMBEDDING_WORKERS` | `8` | Parallel embedding threads |
+| `CHROMA_PERSIST_DIR` | `chroma_store` | ChromaDB storage path |
+| `CHROMA_COLLECTION_NAME` | `scout_questions` | ChromaDB collection name |
+| `EXCEL_FILE_PATH` | `data/questions_store.xlsx` | Excel source file |
+| `BATCH_SIZE` | `50` | Embedding batch size |
+| `SYNC_POLL_INTERVAL` | `10` | File change poll interval (seconds) |
 
 ## Project Structure
 
 ```
 scout_ai_interviewer/
-├── .env                         # API keys and config
-├── requirements.txt
+├── .env                      # Configuration
+├── requirements.txt          # Python dependencies
 ├── data/
-│   └── questions_store.xlsx     # Question database (from Excel)
-├── chroma_store/                # ChromaDB persistence (auto-created)
-├── reports/                     # Interview reports (auto-created)
+│   └── questions_store.xlsx  # Source Excel file
+├── chroma_store/             # ChromaDB persistent storage
 ├── src/
-│   ├── config.py                # Centralized configuration
-│   ├── embedder.py              # Qwen-7B embeddings via Ollama
-│   ├── excel_reader.py          # Excel → Question dataclasses
-│   ├── vector_store.py          # ChromaDB persistence layer
-│   ├── rag_engine.py            # High-level RAG query interface
-│   ├── qwen_interviewer.py      # QwenClient + QwenInterviewer
-│   ├── openai_evaluator.py      # OpenAI meta-evaluator
-│   ├── interview_state.py       # Session state management
-│   ├── interview_runner.py      # Full interview orchestration
-│   └── report_generator.py     # Report generation
+│   ├── config.py             # Loads .env settings
+│   ├── embedder.py           # Ollama embedding client (parallel)
+│   ├── excel_reader.py       # Excel → Question dataclass reader
+│   ├── vector_store.py       # ChromaDB wrapper (upsert/search/delete)
+│   └── sync_service.py       # File watcher + sync logic (MAIN SERVICE)
 └── scripts/
-    ├── load_data.py             # Excel → ChromaDB loader
-    ├── run_interview.py         # Main entry point
-    └── inspect_db.py           # ChromaDB inspector
+    ├── load_data.py          # Manual CLI loader
+    └── inspect_db.py         # ChromaDB inspector
 ```

@@ -1,1 +1,1 @@
-# Scout AI Interviewer — src package
+# Scout AI — VectorDB Sync Service

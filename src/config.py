@@ -1,16 +1,15 @@
 """
 src/config.py
 -------------
-Central configuration for Scout AI Interviewer.
+Configuration for Scout AI VectorDB Sync Service.
 
-Architecture:
-  Qwen-7B via Ollama  → question embeddings + question generation (interviewer)
-  OpenAI GPT-4o-mini  → meta-evaluator only (evaluates Qwen's questions/scoring)
+This service has ONE job: keep ChromaDB in sync with questions_store.xlsx
+using Qwen (nomic-embed-text) via Ollama for embeddings.
 
 Load order:  .env file → environment variables → defaults
 """
 
-import os   # os is used to get the environment variables uses .getenv()
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -19,7 +18,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 class Config:
-    """All runtime settings in one place."""
+    """All runtime settings for the VectorDB sync service."""
 
     # ── Paths ──────────────────────────────────────────────────────
     PROJECT_ROOT: Path = PROJECT_ROOT
@@ -37,33 +36,20 @@ class Config:
         "CHROMA_COLLECTION_NAME", "scout_questions"
     )
 
-    # ── Ollama / Qwen-7B ───────────────────────────────────────────
-    # Qwen is used strictly as the INTERVIEWER (question selection + scoring).
-    # nomic-embed-text is used for EMBEDDINGS (fast, dedicated embedding model).
+    # ── Ollama ─────────────────────────────────────────────────────
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    QWEN_MODEL: str      = os.getenv("QWEN_MODEL", "qwen2.5:7b")
-    QWEN_TEMPERATURE: float = float(os.getenv("QWEN_TEMPERATURE", "0.7"))
 
-    # Embedding model — separate from Qwen (nomic-embed-text is ~10-20x faster).
-    # Used ONLY for ChromaDB indexing and query embedding.
+    # Embedding model via Ollama (nomic-embed-text is fast & purpose-built)
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 
-    # Parallel embedding workers — how many concurrent requests to Ollama.
-    # 8 = fast for nomic-embed-text (lightweight model handles concurrency well).
+    # Parallel embedding workers — concurrent requests to Ollama
     EMBEDDING_WORKERS: int = int(os.getenv("EMBEDDING_WORKERS", "8"))
 
-    # ── OpenAI — meta-evaluator ONLY ──────────────────────────────
-    # OpenAI evaluates:
-    #   1. Whether Qwen's selected questions were appropriate
-    #   2. Whether Qwen's scoring of responses was accurate/fair
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_EVAL_MODEL: str = os.getenv("OPENAI_EVAL_MODEL", "gpt-4o-mini")
-    OPENAI_EVAL_TEMPERATURE: float = float(os.getenv("OPENAI_EVAL_TEMPERATURE", "0.2"))
-
-    # ── Interview / RAG settings ───────────────────────────────────
-    MAX_HISTORY: int = int(os.getenv("MAX_HISTORY", "5"))
+    # ── Sync settings ──────────────────────────────────────────────
     BATCH_SIZE: int = int(os.getenv("BATCH_SIZE", "50"))
-    TOP_K: int = int(os.getenv("TOP_K", "8"))
+
+    # File watcher poll interval in seconds
+    SYNC_POLL_INTERVAL: int = int(os.getenv("SYNC_POLL_INTERVAL", "10"))
 
     # ── Excel Sheet definition ─────────────────────────────────────
     SHEET_NAME: str = "Questions Store"

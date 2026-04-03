@@ -1,1 +1,1 @@
-# Scout AI Interviewer — scripts package
+# Scout AI — VectorDB Sync scripts

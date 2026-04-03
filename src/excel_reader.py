@@ -58,7 +58,7 @@ class Question:
 
     def to_document(self) -> str:
         """
-        Build the text corpus that will be embedded by Qwen and stored in ChromaDB.
+        Build the text corpus that will be embedded and stored in ChromaDB.
         We include high-signal fields so semantic search can match on skills,
         evaluation area, role context, etc.
         """
@@ -77,7 +77,7 @@ class Question:
         Return a flat dict for ChromaDB metadata storage.
         ChromaDB only accepts str | int | float | bool values.
         Heavy text blobs (what_ai_listens_for, signal examples) are stored
-        in metadata so the evaluator can retrieve them via RAG context.
+        in metadata for retrieval and filtering.
         """
         d = asdict(self)
         safe = {}
