@@ -5,6 +5,7 @@ from .vad_service import VADService
 from .audio_service import AudioCaptureService
 from .transcript_service import TranscriptService
 from .rag_service import RAGService
+from .ollama_client import OllamaClient
 
 __all__ = [
     "STTService",
@@ -14,4 +15,5 @@ __all__ = [
     "AudioCaptureService",
     "TranscriptService",
     "RAGService",
+    "OllamaClient",
 ]

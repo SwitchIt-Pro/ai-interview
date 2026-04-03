@@ -25,14 +25,8 @@ import random
 
 import config
 
-# ── Import Scout AI Interviewer components ──────────────────────────────────
-scout_path = Path(__file__).resolve().parent.parent.parent / "scout_ai_interviewer"
-sys.path.insert(0, str(scout_path))
-
-from src.qwen_interviewer import QwenInterviewer
-from src.vector_store import VectorStore
-from src.embedder import Embedder
-from src.rag_engine import RAGEngine
+from .ollama_client import OllamaClient
+from .rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +75,11 @@ def _extract_json(raw: str) -> dict:
 
 class LLMService:
     def __init__(self):
-        logger.info("Initializing LLMService (Connected to Scout AI Interviewer)...")
-        self.qwen = QwenInterviewer()
-        self.store = VectorStore(embedder=Embedder())
-        self.engine = RAGEngine(self.store)
+        logger.info("Initializing LLMService (using native OllamaClient and RAGService)...")
+        self.qwen = OllamaClient()
+        self.rag = RAGService()
 
-        try:
-            from src.openai_evaluator import OpenAIMetaEvaluator
-            self.meta_evaluator = OpenAIMetaEvaluator()
-        except Exception:
-            self.meta_evaluator = None
-            logger.warning("OpenAIMetaEvaluator not available, skipping.")
+        self.meta_evaluator = None
 
         # session_id → session dict
         self.sessions: Dict[str, dict] = {}
@@ -115,10 +103,10 @@ class LLMService:
         """
         logger.info(f"[{session_id}] Phase 1 preparation started...")
 
-        # ── Retrieve VectorDB candidates (best-effort) ───────────────────────
+        # ── Retrieve VectorDB candidates (RAG Service) ───────────────────────
         try:
-            candidates = self.engine.search_for_parameter(
-                "General Experience", role=role, experience_level=level, top_k=20
+            candidates = self.rag.fetch_interview_questions(
+                role=role, experience_level=level, n=10, industry=industry
             )
         except Exception as e:
             logger.warning(f"[{session_id}] VectorDB search failed (Ollama down?): {e}")
@@ -154,7 +142,7 @@ Rules for Q2:
 
         extracted = {}
         try:
-            raw, _ = self.qwen._qwen.prompt(phase1_prompt)
+            raw, _ = self.qwen.prompt(phase1_prompt)
             extracted = _extract_json(raw)
         except Exception as e:
             logger.error(f"[{session_id}] Phase 1 Q-gen failed: {e}")
@@ -280,7 +268,7 @@ Return JSON only:
 Note: set is_abusive to true ONLY if the candidate uses abusive, disrespectful, or extremely inappropriate language."""
 
         try:
-            raw, _ = self.qwen._qwen.prompt(prompt)
+            raw, _ = self.qwen.prompt(prompt)
             result = _extract_json(raw)
             # Validate types
             result["score"] = float(result.get("score", 5.0))
@@ -338,18 +326,13 @@ Note: set is_abusive to true ONLY if the candidate uses abusive, disrespectful, 
         if n == 3:  # generating Q5
             try:
                 candidates = sess.get("questions_queue", [])
-                selected = self.qwen.select_question(
-                    candidates=candidates,
-                    role=role,
-                    experience_level=sess["level"],
-                    evaluation_area="Role Relevance",
-                    conversation_context=history,
-                    asked_ids=sess["asked_ids"],
-                )
-                if selected and "question_id" in selected:
-                    sess["asked_ids"].add(selected["question_id"])
-                    rag_hint = f"\nBase question from question bank (adapt it to depth level): {selected.get('question_text', '')}"
-                    sess["last_rag_context"] = selected.get("rag_context", {})
+                if candidates:
+                    for cand in candidates:
+                        if cand not in sess["asked_ids"]:
+                            sess["asked_ids"].add(cand)
+                            rag_hint = f"\nBase question from question bank (adapt it to depth level): {cand}"
+                            sess["last_rag_context"] = {}
+                            break
             except Exception:
                 pass
 
@@ -384,12 +367,13 @@ Return exactly this JSON format and nothing else:
 }}"""
 
         try:
-            raw, _ = self.qwen._qwen.prompt(prompt)
+            raw, _ = self.qwen.prompt(prompt)
             result = _extract_json(raw)
             q = result.get("question", "")
             if not q:
-                # Fallback if JSON extraction fails but maybe the raw text is decent and doesn't have 'Generated'
-                q = raw.strip().strip('"').strip("'")
+                logger.warning("No question extracted from JSON. raw=" + raw[:100])
+                fallback_idx = (n - 1) % len(FALLBACK_QUESTIONS)
+                return FALLBACK_QUESTIONS[fallback_idx]
             
             # Additional cleanup just in case it leaks "Question:" or "Generated Q:"
             q = re.sub(r'^(?:\*\*.*?\*\*|Generated Q\d?:.*?|Question:.*?|Here is.*?:\s*)', '', q, flags=re.IGNORECASE).strip()
@@ -496,18 +480,15 @@ Return exactly this JSON format and nothing else:
                 logger.info(f"[{session_id}] Q{turn+1} not ready yet — using VectorDB fallback")
                 candidates = sess.get("questions_queue", [])
                 if candidates:
-                    selected = self.qwen.select_question(
-                        candidates=candidates,
-                        role=sess["role"],
-                        experience_level=sess["level"],
-                        evaluation_area=QUESTION_PARAMETER.get(turn + 1, "General"),
-                        conversation_context=sess["history"],
-                        asked_ids=sess["asked_ids"],
-                    )
-                    if selected and "question_id" in selected:
-                        sess["asked_ids"].add(selected["question_id"])
-                    next_q      = selected.get("question_text", FALLBACK_QUESTIONS[turn % len(FALLBACK_QUESTIONS)])
-                    rag_context = selected.get("rag_context", {})
+                    selected_q = None
+                    for cand in candidates:
+                        if cand not in sess["asked_ids"]:
+                            sess["asked_ids"].add(cand)
+                            selected_q = cand
+                            break
+                            
+                    next_q = selected_q if selected_q else FALLBACK_QUESTIONS[turn % len(FALLBACK_QUESTIONS)]
+                    rag_context = {}
                     # Store it so n-2 logic can reference it
                     while len(sess["questions"]) <= turn:
                         sess["questions"].append(next_q)
@@ -566,7 +547,7 @@ Return exactly this JSON format and nothing else:
                 prompt = f"""Review these interview answers and list any phrases repeated 3+ times or generic filler reused across multiple answers.
 Answers: {transcript[:2000]}
 Return JSON only: {{"repeated_phrases": [...], "generic_filler_detected": true or false}}"""
-                raw, _ = self.qwen._qwen.prompt(prompt)
+                raw, _ = self.qwen.prompt(prompt)
                 result = _extract_json(raw)
                 if result.get("generic_filler_detected"):
                     repeated = result.get("repeated_phrases", [])
@@ -713,7 +694,7 @@ Write 7-8 improvement points. Rules:
 Return as a numbered list, plain text only."""
 
         try:
-            raw, _ = self.qwen._qwen.prompt(prompt)
+            raw, _ = self.qwen.prompt(prompt)
             # Strip any JSON leakage, return plain text
             return raw.strip()
         except Exception as e:

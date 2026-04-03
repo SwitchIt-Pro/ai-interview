@@ -1,13 +1,13 @@
 """
-config.py - Central configuration for RTX 1650 (4GB VRAM)
+config.py - Central configuration
 
 VRAM Budget (~4GB):
-  - LLM  (Qwen2.5 1.5B Q4):  ~1.2GB
   - STT  (Whisper Small):     ~0.5GB
   - TTS  (Kokoro-82M):        ~0.3GB
   - OS/Overhead:              ~2.0GB
   --------------------------------
-  Total:                      ~4.0GB ✓
+  Total:                      ~2.8GB ✓
+  (LLM runs via Ollama external to this VRAM budget)
 """
 
 # ─── LiveKit Transport ────────────────────────────────────────────────────────
@@ -21,13 +21,11 @@ STT_DEVICE    = "cuda"
 STT_LANGUAGE  = "en"
 STT_COMPUTE_TYPE = "float16"             # Use fp16 to save VRAM
 
-# ─── LLM: Qwen2.5-1.5B-Instruct Q4 (replaces 7B - too large for 4GB) ────────
-LLM_MODEL_ID  = "Qwen/Qwen2.5-1.5B-Instruct"
-LLM_DEVICE    = "cuda"
-LLM_MAX_NEW_TOKENS = 200
+# ─── LLM: Qwen2.5 via Ollama (Zero VRAM impact for this script) ───────────────
+OLLAMA_BASE_URL    = "http://localhost:11434"
+LLM_MODEL          = "qwen2.5:1.5b"
+LLM_MAX_NEW_TOKENS = 350
 LLM_TEMPERATURE    = 0.7
-LLM_LOAD_IN_4BIT   = True               # bitsandbytes 4-bit quant = ~1.2GB
-LLM_STREAM         = True
 
 # ─── TTS: Kokoro-82M (replaces CosyVoice 0.5B - simpler setup, low latency) ─
 TTS_MODEL     = "hexgrad/Kokoro-82M"     # ~300MB VRAM, ~120ms latency
