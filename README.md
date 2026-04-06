@@ -1,154 +1,184 @@
-# Scout AI — VectorDB Sync Service
+# Scout AI Interviewer — Question Bank Manager
 
-A single-purpose service that keeps a **ChromaDB** vector database in sync with an Excel question store (`questions_store.xlsx`). Uses **nomic-embed-text** via **Ollama** for generating embeddings.
+The **Scout AI Interviewer** is the question generation and VectorDB management layer for the SwitchIt-Pro platform. It provides a clean, recruiter-facing web portal to generate, store, and manage role-specific interview questions — fully locally, using Ollama + Qwen.
 
-## What It Does
+Questions generated here are consumed directly by the **Conversational AI Scouts** pipeline, which uses them to conduct live voice-based screening interviews.
 
-- **Watches** `questions_store.xlsx` for changes (file hash polling)
-- **Adds** new rows → generates embeddings via Ollama → inserts into ChromaDB
-- **Removes** deleted rows → deletes from ChromaDB
-- **Skips** unchanged rows (no re-embedding needed)
+---
 
-## Architecture
+## How It Works
 
 ```
-questions_store.xlsx
-        │
-        ▼  (file hash change detected)
-  ExcelQuestionReader  →  diff question IDs
-        │                       │
-        ▼                       ▼
-  New rows → Embedder (Ollama/nomic-embed-text) → ChromaDB (upsert)
-  Removed rows → ChromaDB (delete)
+Recruiter enters Role + Level
+          ↓
+Qwen2.5:1.5b synthesizes JD context (if none provided)
+          ↓
+Qwen extracts skills + evaluation areas
+          ↓
+Questions generated in batches of 10 (fits 1.5b context window)
+          ↓
+Each question embedded via nomic-embed-text → ChromaDB (scout_questions)
+          ↓
+Raw data saved to data/questions.xlsx (8-column schema)
+          ↓
+VectorDB updated ✅ — live interviews can now use these questions
 ```
+
+---
+
+## 3-Page Web Portal
+
+### Page 1 — Question Bank (Home)
+- Grid of all generated roles in the VectorDB
+- Shows **role name**, **experience level badge**, **skills extracted**, and **question count**
+- **Search** by role name + filter by experience level
+- **Check VectorDB** button — confirms ChromaDB connectivity and total question count
+- **Refresh** button to reload from server
+
+### Page 2 — Add Questions
+- Enter **Role Name** + **Experience Level** — that's all that's required
+- JD is **optional** — if left blank, Qwen auto-generates a contextualized job description
+- Questions generated in **batches of 10** to fit the 1.5b model's context window
+- Live **progress bar** + **log console** showing every step
+- Result panel shows questions added + skills Qwen extracted
+
+### Page 3 — Manage Roles
+- Full table of all roles with search + level filter
+- **Delete** button per role — removes from both `questions.xlsx` and ChromaDB atomically via confirmation modal
+
+---
+
+## Question Schema (8 Columns)
+
+Every generated question is stored with exactly these fields:
+
+| Column | Description |
+|--------|-------------|
+| `question_id` | Auto-assigned (`Q0001`, `Q0002`…) |
+| `question_text` | The actual interview question |
+| `role` | Exact role name entered |
+| `evaluation_area` | One of 5 criteria (see below) |
+| `experience_level` | Fresher / Mid-level / Senior |
+| `question_type` | Behavioral / Situational / Profile-Grounded / Follow-up / Knowledge Check |
+| `what_ai_listens_for` | 1–2 concrete sentences on scoring signals |
+| `follow_up_trigger` | Short phrase (<10 words) that should trigger a follow-up probe |
+
+**Evaluation Areas (exactly 5):**
+- `Communication Skills`
+- `Conceptual Clarity`
+- `Problem Solving`
+- `Role Relevance`
+- `Resume Authenticity`
+
+**Experience Levels (exactly 3):**
+- `Fresher` — 0–2 years
+- `Mid-level` — 3–10 years
+- `Senior` — 10+ years
+
+---
+
+## VG ID (Variant Group ID)
+
+Every generation run produces a **Variant Group ID** (`VG0001`, `VG0002`…). It groups all questions belonging to the same role + level batch. Used for:
+- Counting questions per role card on the home page
+- Deleting an entire role's questions in one click
+- Duplicate JD detection — warns if a similar role already exists
+
+VG IDs are stored in ChromaDB's `jd_registry` collection (not in Excel).
+
+---
 
 ## Prerequisites
 
-1. **Python 3.10+**
-2. **Ollama** running locally:
-   ```bash
-   ollama serve
-   ollama pull nomic-embed-text
-   ```
+```bash
+# 1. Ollama must be running
+ollama serve
 
-## Setup
+# 2. Pull required models
+ollama pull qwen2.5:1.5b      # LLM for question generation
+ollama pull nomic-embed-text  # Embedding model for ChromaDB
+```
+
+---
+
+## Setup & Run
 
 ```bash
 cd scout_ai_interviewer
 pip install -r requirements.txt
+python server.py
 ```
 
-## Usage
+Navigate to **`http://localhost:8050`**
 
-### Sync Service (watch mode — auto-syncs on file changes)
-```bash
-python -m src.sync_service
+---
+
+## ChromaDB Collections
+
+| Collection | Purpose |
+|------------|---------|
+| `scout_questions` | All generated interview questions with embeddings |
+| `jd_registry` | One entry per VG — role, level, skills, creation date |
+
+---
+
+## Project Structure
+
+```
+scout_ai_interviewer/
+├── server.py                 # FastAPI backend (generation, embedding, CRUD)
+├── portal.html               # 3-page frontend (Vanilla JS/CSS)
+├── requirements.txt
+├── .env                      # Configuration overrides
+├── data/
+│   ├── questions.xlsx        # Master question store (8-column schema)
+│   └── questions_store_empty.xlsx  # Blank template (reference only)
+├── chroma_store/             # ChromaDB persistent storage
+├── src/
+│   ├── config.py             # Paths, model names, ChromaDB settings
+│   ├── embedder.py           # Parallel Ollama embedding wrapper
+│   ├── excel_reader.py       # Excel → Question dataclass reader
+│   ├── vector_store.py       # ChromaDB upsert / search / delete
+│   └── sync_service.py       # Background Excel-to-Chroma file watcher
+└── scripts/
+    ├── load_data.py          # Manual bulk loader (Excel → ChromaDB)
+    └── inspect_db.py         # CLI inspector for ChromaDB state
 ```
 
-### Single sync pass (run once and exit)
-```bash
-python -m src.sync_service --once
-```
-
-### Check status (Excel vs ChromaDB diff)
-```bash
-python -m src.sync_service --status
-```
-
-### Force reload (wipe + re-embed everything)
-```bash
-python -m src.sync_service --force-reload
-```
-
-### Manual load (legacy CLI)
-```bash
-python scripts/load_data.py               # Full load
-python scripts/load_data.py --sync        # Incremental sync
-python scripts/load_data.py --summary     # Excel stats
-python scripts/load_data.py --delete      # Wipe ChromaDB
-```
-
-### Inspect ChromaDB
-```bash
-python scripts/inspect_db.py                                    # Collection stats
-python scripts/inspect_db.py --search "objection handling"      # Semantic search
-python scripts/inspect_db.py --role "Sales Executive"           # Filter by role
-python scripts/inspect_db.py --id Q0001                         # Lookup by ID
-```
-
-## Testing
-
-### 1. Check current status
-```bash
-python -m src.sync_service --status
-```
-Shows Excel rows vs ChromaDB documents and whether they are in sync.
-
-### 2. Test adding rows
-1. Open `data/questions_store.xlsx`
-2. Add a new row at the bottom (e.g., ID: `Q9999`, fill in question text and other fields)
-3. Save and close the Excel file
-4. Run a single sync:
-   ```bash
-   python -m src.sync_service --once
-   ```
-5. Output should show **"Added 1"** — the new row was embedded and inserted
-
-### 3. Test removing rows
-1. Open `data/questions_store.xlsx`
-2. Delete the row you just added (or any row)
-3. Save and close
-4. Run sync:
-   ```bash
-   python -m src.sync_service --once
-   ```
-5. Output should show **"Removed 1"** — the deleted row was removed from ChromaDB
-
-### 4. Test watch mode (auto-sync)
-1. Start the watcher:
-   ```bash
-   python -m src.sync_service
-   ```
-2. It will print "Watching for changes..."
-3. Open the Excel file, add or remove a row, save it
-4. Within ~10 seconds the service auto-detects the change and syncs
-5. Press `Ctrl+C` to stop
-
-### 5. Verify with the inspector
-```bash
-python scripts/inspect_db.py --id Q9999           # Check if the row was added
-python scripts/inspect_db.py --search "teamwork"   # Semantic search
-```
+---
 
 ## Configuration (.env)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model in Ollama |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `EMBEDDING_WORKERS` | `8` | Parallel embedding threads |
 | `CHROMA_PERSIST_DIR` | `chroma_store` | ChromaDB storage path |
-| `CHROMA_COLLECTION_NAME` | `scout_questions` | ChromaDB collection name |
-| `EXCEL_FILE_PATH` | `data/questions_store.xlsx` | Excel source file |
+| `CHROMA_COLLECTION_NAME` | `scout_questions` | Main ChromaDB collection |
 | `BATCH_SIZE` | `50` | Embedding batch size |
-| `SYNC_POLL_INTERVAL` | `10` | File change poll interval (seconds) |
+| `SYNC_POLL_INTERVAL` | `10` | File watcher poll interval (seconds) |
 
-## Project Structure
+---
 
+## CLI Tools
+
+```bash
+# Manual bulk load from Excel to ChromaDB
+python scripts/load_data.py
+python scripts/load_data.py --sync           # Incremental only
+python scripts/load_data.py --force-reload   # Wipe and reload all
+python scripts/load_data.py --summary        # Stats only
+
+# Inspect ChromaDB
+python scripts/inspect_db.py                              # Collection stats
+python scripts/inspect_db.py --search "objection handling"  # Semantic search
+python scripts/inspect_db.py --role "Sales Executive"       # Filter by role
+python scripts/inspect_db.py --id Q0001                     # Lookup by ID
 ```
-scout_ai_interviewer/
-├── .env                      # Configuration
-├── requirements.txt          # Python dependencies
-├── data/
-│   └── questions_store.xlsx  # Source Excel file
-├── chroma_store/             # ChromaDB persistent storage
-├── src/
-│   ├── config.py             # Loads .env settings
-│   ├── embedder.py           # Ollama embedding client (parallel)
-│   ├── excel_reader.py       # Excel → Question dataclass reader
-│   ├── vector_store.py       # ChromaDB wrapper (upsert/search/delete)
-│   └── sync_service.py       # File watcher + sync logic (MAIN SERVICE)
-└── scripts/
-    ├── load_data.py          # Manual CLI loader
-    └── inspect_db.py         # ChromaDB inspector
-```
+
+---
+
+## Cloud Deployment
+
+For deploying on AWS EC2 with a GPU-enabled instance, refer to [AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md).
