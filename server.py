@@ -1,11 +1,16 @@
 import os
 import uuid
 import json
+import hmac
+import hashlib
 import logging
 import asyncio
 import threading
 from datetime import datetime
 from typing import Optional
+
+from dotenv import load_dotenv
+load_dotenv()  # load .env early so all os.getenv() calls below work
 
 import httpx
 import ollama
@@ -13,8 +18,9 @@ import chromadb
 import pdfplumber
 import openpyxl
 
-from fastapi import FastAPI, UploadFile, Form, File, BackgroundTasks, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, Form, File, BackgroundTasks, Request, HTTPException, Response
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -33,6 +39,44 @@ OLLAMA_HOST = "http://localhost:11434"
 LLM_MODEL = "qwen2.5:1.5b"
 EMBED_MODEL = "nomic-embed-text"
 
+# ── Admin Auth ─────────────────────────────────────────────────────────────
+ADMIN_EMAIL      = os.getenv("ADMIN_EMAIL", "admin@scout.ai")
+ADMIN_PASSWORD   = os.getenv("ADMIN_PASSWORD", "Scout@2024")
+SESSION_SECRET   = os.getenv("SESSION_SECRET", "fallback-secret-change-me")
+SESSION_COOKIE   = "scout_session"
+
+# Public paths that don't need authentication
+PUBLIC_PATHS = {"/api/login", "/api/logout"}
+
+def _sign(token: str) -> str:
+    """HMAC-SHA256 signature of the session token."""
+    return hmac.new(SESSION_SECRET.encode(), token.encode(), hashlib.sha256).hexdigest()
+
+def _make_session_cookie() -> str:
+    token = uuid.uuid4().hex
+    return f"{token}.{_sign(token)}"
+
+def _verify_session_cookie(cookie: str) -> bool:
+    try:
+        token, sig = cookie.rsplit(".", 1)
+        return hmac.compare_digest(sig, _sign(token))
+    except Exception:
+        return False
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Always allow: public auth endpoints, preflight, and the root HTML page
+    if (request.method == "OPTIONS"
+            or request.url.path in PUBLIC_PATHS
+            or request.url.path == "/"):       # serve portal.html always so login overlay works
+        return await call_next(request)
+    # Check session cookie for everything else
+    cookie = request.cookies.get(SESSION_COOKIE, "")
+    if not _verify_session_cookie(cookie):
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    return await call_next(request)
+
+# ── Configuration — 8-column schema ──────────────────────────────────────
 # Global state
 job_events = {}  # { job_id: [event_dict, ...] }
 
@@ -391,6 +435,33 @@ Return ONLY the raw JSON array. No markdown, no backticks, no explanation."""
 def index():
     return FileResponse("portal.html")
 
+# ── Auth endpoints ──────────────────────────────────────────────────
+
+@app.post("/api/login")
+async def login(response: Response, email: str = Form(...), password: str = Form(...)):
+    if email.strip().lower() != ADMIN_EMAIL.strip().lower() or password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    cookie_val = _make_session_cookie()
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=cookie_val,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 12,  # 12 hours
+    )
+    logger.info(f"Admin login: {email}")
+    return {"ok": True}
+
+@app.post("/api/logout")
+async def logout(response: Response):
+    response.delete_cookie(SESSION_COOKIE)
+    return {"ok": True}
+
+@app.get("/api/me")
+def me(request: Request):
+    """Returns the logged-in admin email. Protected by middleware."""
+    return {"email": ADMIN_EMAIL}
+
 @app.get("/api/health")
 def health():
     # check ollama
@@ -532,6 +603,193 @@ def delete_job(variant_group_id: str):
     except: pass
 
     return {"deleted": True, "questions_removed": q_removed}
+
+# ── UPLOAD SHEET ─────────────────────────────────────────────────────────────
+
+@app.post("/api/upload-sheet")
+async def upload_sheet(file: UploadFile = File(...)):
+    """
+    Accept an .xlsx file with EXACTLY the 8 canonical columns.
+    Validates headers, assigns auto-incremented Q-IDs, saves to Excel,
+    embeds each row via nomic-embed-text, and upserts into ChromaDB.
+    Returns a summary: rows_added, skipped_duplicates, variant_group_id.
+    """
+    if not file.filename.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="Only .xlsx / .xls files are accepted.")
+
+    # ── Read uploaded workbook ────────────────────────────────────────
+    import io, time
+    raw = await file.read()
+    try:
+        wb_up = openpyxl.load_workbook(io.BytesIO(raw))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Cannot read Excel file: {e}")
+
+    ws_up = wb_up.active
+    # Get actual headers from row 1
+    uploaded_headers = [str(cell.value).strip() if cell.value else "" for cell in ws_up[1]]
+
+    # Validate — must match HEADERS exactly
+    if uploaded_headers != HEADERS:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Column headers do not match the required 8-column schema.",
+                "expected": HEADERS,
+                "received": uploaded_headers,
+            }
+        )
+
+    # ── Collect valid rows ────────────────────────────────────────────
+    rows = []
+    for row in ws_up.iter_rows(min_row=2, values_only=True):
+        # Skip completely empty rows
+        if not any(row):
+            continue
+        # Pad to 8 columns if needed
+        padded = list(row) + [None] * (8 - len(row))
+        rows.append(padded[:8])
+
+    if not rows:
+        raise HTTPException(status_code=422, detail="The uploaded sheet has no data rows.")
+
+    # ── Deduplicate vs existing Excel store ───────────────────────────
+    existing_texts: set = set()
+    if os.path.exists(EXCEL_FILE):
+        wb_ex = openpyxl.load_workbook(EXCEL_FILE)
+        ws_ex = wb_ex.active
+        for r in ws_ex.iter_rows(min_row=2, values_only=True):
+            if r and r[1]:  # column B = question_text
+                existing_texts.add(str(r[1]).strip().lower())
+    else:
+        os.makedirs("data", exist_ok=True)
+        wb_ex = openpyxl.Workbook()
+        ws_ex = wb_ex.active
+        ws_ex.title = "Questions"
+        ws_ex.append(HEADERS)
+
+    # ── Get next IDs ──────────────────────────────────────────────────
+    next_vg_id, next_q_ids = get_next_ids(len(rows))
+
+    added_rows = []
+    skipped = 0
+    q_idx = 0
+
+    chroma_ids        = []
+    chroma_embeddings = []
+    chroma_documents  = []
+    chroma_metadatas  = []
+
+    # Reload (or create) the destination workbook for appending
+    if os.path.exists(EXCEL_FILE):
+        wb_dest = openpyxl.load_workbook(EXCEL_FILE)
+    else:
+        wb_dest = openpyxl.Workbook()
+        wb_dest.active.title = "Questions"
+        wb_dest.active.append(HEADERS)
+    ws_dest = wb_dest.active
+
+    for padded in rows:
+        q_text    = str(padded[1]).strip() if padded[1] else ""
+        role_val  = str(padded[2]).strip() if padded[2] else ""
+        eval_area = str(padded[3]).strip() if padded[3] else "Role Relevance"
+        exp_level = str(padded[4]).strip() if padded[4] else ""
+        q_type    = str(padded[5]).strip() if padded[5] else "Behavioral"
+        listens   = str(padded[6]).strip() if padded[6] else ""
+        trigger   = str(padded[7]).strip() if padded[7] else ""
+
+        # Skip duplicate question_text
+        if q_text.lower() in existing_texts:
+            skipped += 1
+            continue
+
+        # Assign new Q-ID (ignore whatever was in the uploaded file)
+        if q_idx < len(next_q_ids):
+            q_id = next_q_ids[q_idx]
+        else:
+            # Extra safety if rows > pre-calculated count
+            q_id = f"Q{(q_idx + 1):04d}"
+        q_idx += 1
+
+        existing_texts.add(q_text.lower())  # prevent intra-batch dupes
+
+        new_row = [q_id, q_text, role_val, eval_area, exp_level, q_type, listens, trigger]
+        ws_dest.append(new_row)
+        added_rows.append(new_row)
+
+        embedding_text = f"{q_text}. {listens}".strip()
+        chroma_ids.append(q_id)
+        chroma_documents.append(embedding_text)
+        chroma_metadatas.append({
+            "role": role_val,
+            "evaluation_area": eval_area,
+            "experience_level": exp_level,
+            "question_type": q_type,
+            "follow_up_trigger": trigger,
+            "variant_group_id": next_vg_id,
+        })
+
+    if not added_rows:
+        raise HTTPException(
+            status_code=409,
+            detail=f"All {skipped} rows already exist in the question bank. Nothing was added."
+        )
+
+    # ── Save Excel with retry ─────────────────────────────────────────
+    for attempt in range(10):
+        try:
+            wb_dest.save(EXCEL_FILE)
+            break
+        except PermissionError:
+            if attempt == 9:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Cannot save Excel — please close the file and retry."
+                )
+            time.sleep(3)
+
+    # ── Embed & push to ChromaDB ──────────────────────────────────────
+    for doc in chroma_documents:
+        chroma_embeddings.append(get_embedding(doc))
+
+    scout_questions.upsert(
+        ids=chroma_ids,
+        embeddings=chroma_embeddings,
+        documents=chroma_documents,
+        metadatas=chroma_metadatas,
+    )
+
+    # ── Register a VG in jd_registry ─────────────────────────────────
+    # Derive a synthetic JD summary from the first role found
+    roles_in_batch  = list({r[2] for r in added_rows if r[2]})
+    levels_in_batch = list({r[4] for r in added_rows if r[4]})
+    synthetic_jd    = f"Manually uploaded questions for {', '.join(roles_in_batch)} ({', '.join(levels_in_batch)})."
+    vg_embedding    = get_embedding(synthetic_jd)
+
+    jd_registry.upsert(
+        ids=[next_vg_id],
+        embeddings=[vg_embedding],
+        documents=[synthetic_jd],
+        metadatas=[{
+            "role": roles_in_batch[0] if roles_in_batch else "Unknown",
+            "experience_level": levels_in_batch[0] if levels_in_batch else "Unknown",
+            "variant_group_id": next_vg_id,
+            "created_at": datetime.utcnow().isoformat(),
+            "skills_extracted": json.dumps([]),
+            "upload_source": file.filename,
+        }]
+    )
+
+    logger.info(f"Sheet upload complete — {len(added_rows)} added, {skipped} skipped, VG={next_vg_id}")
+    return {
+        "success": True,
+        "rows_added": len(added_rows),
+        "rows_skipped": skipped,
+        "variant_group_id": next_vg_id,
+        "roles": roles_in_batch,
+        "experience_levels": levels_in_batch,
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,716 +1,1793 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SwitchIt-Pro · Question Bank Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwitchIt-Pro · Question Bank Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  :root {
-    --bg:          #0a0d14;
-    --surface:     #111520;
-    --surface2:    #161c2d;
-    --border:      #1e2840;
-    --accent:      #4f7fff;
-    --accent2:     #7c3aed;
-    --success:     #22c55e;
-    --warning:     #f59e0b;
-    --danger:      #ef4444;
-    --text:        #e2e8f0;
-    --muted:       #64748b;
-    --glow:        0 0 24px rgba(79,127,255,.25);
-  }
+    :root {
+      --bg: #0a0d14;
+      --surface: #111520;
+      --surface2: #161c2d;
+      --border: #1e2840;
+      --accent: #4f7fff;
+      --accent2: #7c3aed;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --glow: 0 0 24px rgba(79, 127, 255, .25);
+    }
 
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; }
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
 
-  /* ── NAV ─────────────────────────────────────────────────────────── */
-  nav {
-    display: flex; align-items: center; gap: 0;
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 0 32px; height: 60px; position: sticky; top: 0; z-index: 50;
-  }
-  .nav-logo { font-weight: 800; font-size: 17px; letter-spacing: -.3px; margin-right: 40px; }
-  .nav-logo span { color: var(--accent); }
-  .nav-tab {
-    height: 60px; padding: 0 20px; display: flex; align-items: center; gap: 8px;
-    cursor: pointer; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent;
-    transition: color .2s, border-color .2s; font-size: 13px; user-select: none;
-  }
-  .nav-tab:hover { color: var(--text); }
-  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .nav-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
-  .nav-status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 2s infinite; }
-  .status-dot.ok { background: var(--success); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    /* ── NAV ─────────────────────────────────────────────────────────── */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
 
-  /* ── PAGES ───────────────────────────────────────────────────────── */
-  .page { display: none; padding: 32px; max-width: 1200px; margin: 0 auto; animation: fadeIn .25s ease; }
-  .page.active { display: block; }
-  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .nav-logo {
+      font-weight: 800;
+      font-size: 17px;
+      letter-spacing: -.3px;
+      margin-right: 40px;
+    }
 
-  /* ── COMMON ──────────────────────────────────────────────────────── */
-  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+    .nav-logo span {
+      color: var(--accent);
+    }
 
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px; margin-bottom: 20px;
-  }
+    .nav-tab {
+      height: 60px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+      font-size: 13px;
+      user-select: none;
+    }
 
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 0 18px; height: 38px; border-radius: 8px; border: none;
-    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-    transition: opacity .15s, transform .1s, box-shadow .15s;
-    text-decoration: none;
-  }
-  .btn:hover { opacity: .85; }
-  .btn:active { transform: scale(.97); }
-  .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--glow); }
-  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-  .btn-danger { background: rgba(239,68,68,.15); color: var(--danger); border: 1px solid rgba(239,68,68,.3); }
-  .btn-success { background: rgba(34,197,94,.15); color: var(--success); border: 1px solid rgba(34,197,94,.3); }
-  .btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+    .nav-tab:hover {
+      color: var(--text);
+    }
 
-  input, select, textarea {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); font-family: inherit; font-size: 13px; padding: 0 12px;
-    height: 38px; width: 100%; outline: none; transition: border-color .2s;
-  }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-  textarea { height: auto; padding: 10px 12px; resize: vertical; }
-  label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; display: block; }
+    .nav-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
 
-  .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
-  .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
-  .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-  .form-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .nav-tab svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
 
-  /* ── PAGE 1 — HOME ────────────────────────────────────────────────── */
-  .search-bar { display: flex; gap: 10px; margin-bottom: 24px; }
-  .search-bar input { flex: 1; }
+    .nav-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-  .jobs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      animation: pulse 2s infinite;
+    }
 
-  .job-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px; transition: border-color .2s, transform .15s;
-    position: relative; overflow: hidden;
-  }
-  .job-card:hover { border-color: rgba(79,127,255,.4); transform: translateY(-2px); }
-  .job-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(79,127,255,.03), transparent); pointer-events: none; }
+    .status-dot.ok {
+      background: var(--success);
+    }
 
-  .job-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-  .role-name { font-weight: 700; font-size: 15px; line-height: 1.3; }
-  .level-badge {
-    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
-    text-transform: uppercase; letter-spacing: .05em; flex-shrink: 0;
-  }
-  .level-fresher    { background: rgba(34,197,94,.15); color: var(--success); border: 1px solid rgba(34,197,94,.3); }
-  .level-mid        { background: rgba(79,127,255,.15); color: var(--accent); border: 1px solid rgba(79,127,255,.3); }
-  .level-senior     { background: rgba(124,58,237,.15); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+    @keyframes pulse {
 
-  .job-card-meta { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-  .job-card-meta span { display: flex; align-items: center; gap: 5px; }
-  .job-card-skills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
-  .skill-tag { background: rgba(79,127,255,.1); color: var(--accent); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(79,127,255,.2); }
-  .job-card-footer { display: flex; justify-content: space-between; align-items: center; }
-  .q-count { font-size: 22px; font-weight: 800; color: var(--accent); }
-  .q-label { font-size: 10px; color: var(--muted); }
+      0%,
+      100% {
+        opacity: 1
+      }
 
-  .empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
-  .empty-state svg { width: 48px; height: 48px; opacity: .3; margin-bottom: 16px; }
-  .empty-state h3 { font-size: 17px; color: var(--text); margin-bottom: 6px; }
+      50% {
+        opacity: .4
+      }
+    }
 
-  /* ── PAGE 2 — ADD QUESTIONS ───────────────────────────────────────── */
-  .progress-section { margin-top: 20px; }
-  .progress-bar-outer { background: var(--surface2); border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 6px; }
-  .progress-bar-inner { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 8px; transition: width .4s ease; width: 0%; }
-  .progress-label { font-size: 12px; color: var(--muted); }
+    /* ── PAGES ───────────────────────────────────────────────────────── */
+    .page {
+      display: none;
+      padding: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+      animation: fadeIn .25s ease;
+    }
 
-  .log-box { background: #080b12; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-size: 12px; font-family: 'Courier New', monospace; color: #94a3b8; max-height: 200px; overflow-y: auto; margin-top: 12px; }
-  .log-entry { margin-bottom: 4px; }
-  .log-ok { color: var(--success); }
-  .log-warn { color: var(--warning); }
-  .log-err { color: var(--danger); }
+    .page.active {
+      display: block;
+    }
 
-  /* ── PAGE 3 — DELETE ──────────────────────────────────────────────── */
-  .delete-table { width: 100%; border-collapse: collapse; }
-  .delete-table th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
-  .delete-table td { padding: 12px 14px; border-bottom: 1px solid rgba(30,40,64,.6); vertical-align: middle; font-size: 13px; }
-  .delete-table tr:last-child td { border-bottom: none; }
-  .delete-table tr:hover td { background: rgba(79,127,255,.03); }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px)
+      }
 
-  /* ── SUCCESS BANNER ─────────────────────────────────────────────── */
-  .toast {
-    position: fixed; bottom: 24px; right: 24px; z-index: 999;
-    background: var(--surface); border: 1px solid var(--success);
-    border-radius: 10px; padding: 14px 20px; font-size: 13px; font-weight: 600;
-    display: flex; align-items: center; gap: 10px; color: var(--success);
-    box-shadow: 0 8px 32px rgba(0,0,0,.4);
-    animation: slideUp .3s ease;
-    max-width: 320px;
-  }
-  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
 
-  /* ── MODAL ───────────────────────────────────────────────────────── */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(4px); animation: fadeIn .2s;
-  }
-  .modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 28px; width: min(480px, 90vw);
-  }
-  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-  .modal p { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    /* ── COMMON ──────────────────────────────────────────────────────── */
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
 
-  /* ── SPINNER ─────────────────────────────────────────────────────── */
-  .spinner {
-    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.2);
-    border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to{transform:rotate(360deg)} }
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
 
-  /* ── VDB STATUS BADGE ────────────────────────────────────────────── */
-  .vdb-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--surface2); border: 1px solid var(--border);
-    padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
-  }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
 
-  @media (max-width: 640px) {
-    .form-row.cols-2, .form-row.cols-3, .form-row.cols-4 { grid-template-columns: 1fr; }
-    .jobs-grid { grid-template-columns: 1fr; }
-    nav { padding: 0 16px; }
-    .page { padding: 20px 16px; }
-  }
-</style>
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 18px;
+      height: 38px;
+      border-radius: 8px;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s, box-shadow .15s;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      opacity: .85;
+    }
+
+    .btn:active {
+      transform: scale(.97);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: var(--glow);
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, .15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, .3);
+    }
+
+    .btn-success {
+      background: rgba(34, 197, 94, .15);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .btn-sm {
+      height: 30px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+
+    input,
+    select,
+    textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 0 12px;
+      height: 38px;
+      width: 100%;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      height: auto;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .form-row {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-row.cols-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .form-row.cols-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .form-row.cols-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    /* ── PAGE 1 — HOME ────────────────────────────────────────────────── */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .search-bar input {
+      flex: 1;
+    }
+
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .job-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color .2s, transform .15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .job-card:hover {
+      border-color: rgba(79, 127, 255, .4);
+      transform: translateY(-2px);
+    }
+
+    .job-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(79, 127, 255, .03), transparent);
+      pointer-events: none;
+    }
+
+    .job-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .role-name {
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .level-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      flex-shrink: 0;
+    }
+
+    .level-fresher {
+      background: rgba(34, 197, 94, .15);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .level-mid {
+      background: rgba(79, 127, 255, .15);
+      color: var(--accent);
+      border: 1px solid rgba(79, 127, 255, .3);
+    }
+
+    .level-senior {
+      background: rgba(124, 58, 237, .15);
+      color: #a78bfa;
+      border: 1px solid rgba(124, 58, 237, .3);
+    }
+
+    .job-card-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .job-card-meta span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .job-card-skills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+
+    .skill-tag {
+      background: rgba(79, 127, 255, .1);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(79, 127, 255, .2);
+    }
+
+    .job-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .q-count {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .q-label {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      opacity: .3;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+      font-size: 17px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    /* ── PAGE 2 — ADD QUESTIONS ───────────────────────────────────────── */
+    .progress-section {
+      margin-top: 20px;
+    }
+
+    .progress-bar-outer {
+      background: var(--surface2);
+      border-radius: 8px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      transition: width .4s ease;
+      width: 0%;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .log-box {
+      background: #080b12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      color: #94a3b8;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 12px;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+    }
+
+    .log-ok {
+      color: var(--success);
+    }
+
+    .log-warn {
+      color: var(--warning);
+    }
+
+    .log-err {
+      color: var(--danger);
+    }
+
+    /* ── PAGE 3 — DELETE ──────────────────────────────────────────────── */
+    .delete-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .delete-table th {
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .delete-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(30, 40, 64, .6);
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    .delete-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .delete-table tr:hover td {
+      background: rgba(79, 127, 255, .03);
+    }
+
+    /* ── SUCCESS BANNER ─────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      background: var(--surface);
+      border: 1px solid var(--success);
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--success);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
+      animation: slideUp .3s ease;
+      max-width: 320px;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1
+      }
+    }
+
+    /* ── MODAL ───────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      animation: fadeIn .2s;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: min(480px, 90vw);
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .modal p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ── SPINNER ─────────────────────────────────────────────────────── */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* ── VDB STATUS BADGE ────────────────────────────────────────────── */
+    .vdb-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── UPLOAD SHEET ────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: transparent;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(79, 127, 255, .05);
+    }
+
+    .drop-zone svg {
+      width: 40px;
+      height: 40px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .drop-zone .dz-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .drop-zone .dz-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .schema-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .schema-col {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .schema-col .col-num {
+      background: rgba(79, 127, 255, .15);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .upload-result-grid {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .upload-stat {
+      flex: 1;
+      min-width: 120px;
+      text-align: center;
+      padding: 20px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .upload-stat .stat-num {
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .upload-stat .stat-lbl {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-top: 2px;
+    }
+
+    @media (max-width: 640px) {
+
+      .form-row.cols-2,
+      .form-row.cols-3,
+      .form-row.cols-4 {
+        grid-template-columns: 1fr;
+      }
+
+      .jobs-grid {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        padding: 0 16px;
+      }
+
+      .page {
+        padding: 20px 16px;
+      }
+    }
+
+    /* ── LOGIN OVERLAY ─────────────────────────────────────────────── */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: radial-gradient(ellipse at 60% 40%, rgba(79, 127, 255, .15) 0%, rgba(10, 13, 20, .98) 60%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(12px);
+      animation: fadeIn .3s ease;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: min(420px, 92vw);
+      box-shadow: 0 32px 80px rgba(0, 0, 0, .6), 0 0 0 1px rgba(79, 127, 255, .1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79, 127, 255, .12), transparent 70%);
+      pointer-events: none;
+    }
+
+    .login-logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -.4px;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .login-logo span {
+      color: var(--accent);
+    }
+
+    .login-sub {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .login-field {
+      margin-bottom: 16px;
+    }
+
+    .login-btn {
+      width: 100%;
+      height: 44px;
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      box-shadow: var(--glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+
+    .login-btn:hover {
+      opacity: .88;
+    }
+
+    .login-btn:active {
+      transform: scale(.98);
+    }
+
+    .login-error {
+      background: rgba(239, 68, 68, .12);
+      border: 1px solid rgba(239, 68, 68, .3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 14px;
+      display: none;
+    }
+
+    .nav-admin {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 14px;
+      padding-left: 14px;
+      border-left: 1px solid var(--border);
+    }
+
+    .nav-admin-email {
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">SwitchIt<span>·Pro</span></div>
+  <!-- ══ LOGIN OVERLAY ═══════════════════════════════════════════════════════ -->
+  <div id="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">SwitchIt<span>·Pro</span></div>
+      <div class="login-sub">Admin Portal — sign in to continue</div>
 
-  <div class="nav-tab active" id="tab-home" onclick="switchTab('home')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-    Question Bank
-  </div>
-  <div class="nav-tab" id="tab-add" onclick="switchTab('add')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-    Add Questions
-  </div>
-  <div class="nav-tab" id="tab-delete" onclick="switchTab('delete')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-    Manage Roles
-  </div>
+      <div class="login-field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="user@.com" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <label for="login-pass">Password</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
 
-  <div class="nav-status">
-    <div class="status-dot" id="ollama-dot"></div>
-    <span id="ollama-label">Checking Ollama…</span>
-  </div>
-</nav>
-
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- PAGE 1: HOME                                                        -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="page active" id="page-home">
-  <h1>Question Bank</h1>
-  <p class="subtitle">All generated roles in the VectorDB — browse, filter and inspect.</p>
-
-  <div class="search-bar">
-    <input type="text" id="home-search" placeholder="🔍  Search by role name…" oninput="filterJobs()" />
-    <select id="home-level" onchange="filterJobs()" style="width:200px">
-      <option value="">All experience levels</option>
-      <option value="Fresher">Fresher (0–2 yrs)</option>
-      <option value="Mid-level">Mid-level (3–10 yrs)</option>
-      <option value="Senior">Senior (10+ yrs)</option>
-    </select>
-    <button class="btn btn-secondary" onclick="checkVDB()" id="vdb-btn">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4z"/><path d="M4 12h16v4H4z"/><path d="M4 20h4"/><path d="M12 20h8"/></svg>
-      Check VectorDB
-    </button>
-    <button class="btn btn-primary" onclick="loadJobs()">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
-      Refresh
-    </button>
-  </div>
-
-  <div id="vdb-status-row" style="display:none; margin-bottom:20px;"></div>
-
-  <div class="jobs-grid" id="jobs-grid">
-    <div class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-      <h3>Loading jobs…</h3>
-      <p>Fetching from server</p>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+          <polyline points="10 17 15 12 10 7" />
+          <line x1="15" y1="12" x2="3" y2="12" />
+        </svg>
+        Sign In
+      </button>
+      <div class="login-error" id="login-error">Invalid email or password. Please try again.</div>
     </div>
   </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- PAGE 2: ADD QUESTIONS                                               -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="page" id="page-add">
-  <h1>Add Questions to VectorDB</h1>
-  <p class="subtitle">Enter a role and experience level — Qwen will generate tailored questions and push them to the VectorDB automatically.</p>
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">SwitchIt<span>·Pro</span></div>
 
-  <div class="card">
-    <div class="form-row cols-3">
-      <div>
-        <label>Role Name *</label>
-        <input type="text" id="add-role" placeholder="e.g. Software Engineer, Recruiter, Sales Executive" />
-      </div>
-      <div>
-        <label>Experience Level *</label>
-        <select id="add-level">
-          <option value="">Select level…</option>
-          <option value="Fresher">Fresher (0–2 yrs)</option>
-          <option value="Mid-level">Mid-level (3–10 yrs)</option>
-          <option value="Senior">Senior (10+ yrs)</option>
-        </select>
-      </div>
-      <div>
-        <label>Number of Questions</label>
-        <input type="number" id="add-num" value="20" min="5" max="100" />
-      </div>
+    <div class="nav-tab active" id="tab-home" onclick="switchTab('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      </svg>
+      Question Bank
+    </div>
+    <div class="nav-tab" id="tab-add" onclick="switchTab('add')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+      Add Questions
+    </div>
+    <div class="nav-tab" id="tab-upload" onclick="switchTab('upload')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+      Upload Sheet
+    </div>
+    <div class="nav-tab" id="tab-delete" onclick="switchTab('delete')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6M14 11v6" />
+        <path d="M9 6V4h6v2" />
+      </svg>
+      Manage Roles
     </div>
 
-    <div class="form-row">
-      <div>
-        <label>Job Description (optional — paste text or leave blank for generic generation)</label>
-        <textarea id="add-jd" rows="5" placeholder="Paste the job description here, or leave blank and Qwen will generate generic high-quality questions for the role…"></textarea>
-      </div>
+    <div class="nav-status">
+      <div class="status-dot" id="ollama-dot"></div>
+      <span id="ollama-label">Checking Ollama…</span>
     </div>
-
-    <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-      <div style="font-size:12px; color:var(--muted);">
-        💡 Qwen will auto-generate <strong id="add-num-display">20</strong> interview questions with full metadata, embed them via nomic-embed-text, and sync to ChromaDB.
-      </div>
-      <button class="btn btn-primary" id="add-btn" onclick="startGeneration()">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Generate &amp; Push to VectorDB
+    <div class="nav-admin" id="nav-admin" style="display:none">
+      <span class="nav-admin-email" id="nav-admin-email">—</span>
+      <button class="btn btn-secondary btn-sm" onclick="doLogout()">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        Logout
       </button>
     </div>
-  </div>
+  </nav>
 
-  <div class="card" id="progress-card" style="display:none">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <div style="font-weight:700; font-size:15px;">Generation Progress</div>
-      <div class="vdb-badge" id="progress-step-label">
-        <div class="spinner"></div>
-        <span>Initializing…</span>
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE 1: HOME                                                        -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="page active" id="page-home">
+    <h1>Question Bank</h1>
+    <p class="subtitle">All generated roles in the VectorDB — browse, filter and inspect.</p>
+
+    <div class="search-bar">
+      <input type="text" id="home-search" placeholder="🔍  Search by role name…" oninput="filterJobs()" />
+      <select id="home-level" onchange="filterJobs()" style="width:200px">
+        <option value="">All experience levels</option>
+        <option value="Fresher">Fresher (0–2 yrs)</option>
+        <option value="Mid-level">Mid-level (3–10 yrs)</option>
+        <option value="Senior">Senior (10+ yrs)</option>
+      </select>
+      <button class="btn btn-secondary" onclick="checkVDB()" id="vdb-btn">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 4h16v4H4z" />
+          <path d="M4 12h16v4H4z" />
+          <path d="M4 20h4" />
+          <path d="M12 20h8" />
+        </svg>
+        Check VectorDB
+      </button>
+      <button class="btn btn-primary" onclick="loadJobs()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10" />
+          <path d="M3.51 15a9 9 0 1 0 .49-3.36" />
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <div id="vdb-status-row" style="display:none; margin-bottom:20px;"></div>
+
+    <div class="jobs-grid" id="jobs-grid">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3>Loading jobs…</h3>
+        <p>Fetching from server</p>
       </div>
     </div>
-    <div class="progress-bar-outer"><div class="progress-bar-inner" id="progress-bar"></div></div>
-    <div class="progress-label" id="progress-pct">0%</div>
-    <div class="log-box" id="log-box"></div>
+  </div>
 
-    <div id="result-section" style="display:none; margin-top:20px;">
-      <div style="display:flex; gap:16px; flex-wrap:wrap;">
-        <div class="card" style="flex:1; min-width:150px; text-align:center; padding:20px; border-color: rgba(34,197,94,.3); background:rgba(34,197,94,.05)">
-          <div style="font-size:32px; font-weight:800; color:var(--success)" id="result-count">0</div>
-          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em">Questions Added</div>
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE 2: ADD QUESTIONS                                               -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="page" id="page-add">
+    <h1>Add Questions to VectorDB</h1>
+    <p class="subtitle">Enter a role and experience level — Qwen will generate tailored questions and push them to the
+      VectorDB automatically.</p>
+
+    <div class="card">
+      <div class="form-row cols-3">
+        <div>
+          <label>Role Name *</label>
+          <input type="text" id="add-role" placeholder="e.g. Software Engineer, Recruiter, Sales Executive" />
         </div>
-        <div class="card" style="flex:2; min-width:200px; padding:20px;">
-          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:8px;">Skills Extracted by Qwen</div>
-          <div id="result-skills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        <div>
+          <label>Experience Level *</label>
+          <select id="add-level">
+            <option value="">Select level…</option>
+            <option value="Fresher">Fresher (0–2 yrs)</option>
+            <option value="Mid-level">Mid-level (3–10 yrs)</option>
+            <option value="Senior">Senior (10+ yrs)</option>
+          </select>
+        </div>
+        <div>
+          <label>Number of Questions</label>
+          <input type="number" id="add-num" value="20" min="5" max="100" />
         </div>
       </div>
-      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
-        <button class="btn btn-secondary" onclick="resetForm()">Add Another Role</button>
-        <button class="btn btn-success" onclick="switchTab('home')">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-          View Question Bank
+
+      <div class="form-row">
+        <div>
+          <label>Job Description (optional — paste text or leave blank for generic generation)</label>
+          <textarea id="add-jd" rows="5"
+            placeholder="Paste the job description here, or leave blank and Qwen will generate generic high-quality questions for the role…"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+        <div style="font-size:12px; color:var(--muted);">
+          💡 Qwen will auto-generate <strong id="add-num-display">20</strong> interview questions with full metadata,
+          embed them via nomic-embed-text, and sync to ChromaDB.
+        </div>
+        <button class="btn btn-primary" id="add-btn" onclick="startGeneration()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          Generate &amp; Push to VectorDB
         </button>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- PAGE 3: MANAGE / DELETE                                             -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="page" id="page-delete">
-  <h1>Manage Roles</h1>
-  <p class="subtitle">Search and delete entire role question sets from both Excel and ChromaDB.</p>
+    <div class="card" id="progress-card" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="font-weight:700; font-size:15px;">Generation Progress</div>
+        <div class="vdb-badge" id="progress-step-label">
+          <div class="spinner"></div>
+          <span>Initializing…</span>
+        </div>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progress-bar"></div>
+      </div>
+      <div class="progress-label" id="progress-pct">0%</div>
+      <div class="log-box" id="log-box"></div>
 
-  <div class="search-bar" style="margin-bottom:20px;">
-    <input type="text" id="del-search" placeholder="🔍  Search by role name…" oninput="filterDeleteTable()" />
-    <select id="del-level" onchange="filterDeleteTable()" style="width:200px">
-      <option value="">All levels</option>
-      <option value="Fresher">Fresher</option>
-      <option value="Mid-level">Mid-level</option>
-      <option value="Senior">Senior</option>
-    </select>
-    <button class="btn btn-primary" onclick="loadDeleteTable()">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
-      Refresh
-    </button>
-  </div>
-
-  <div class="card" style="padding:0; overflow:hidden;">
-    <table class="delete-table" id="delete-table">
-      <thead>
-        <tr>
-          <th>Role</th>
-          <th>Experience Level</th>
-          <th>Questions</th>
-          <th>Created</th>
-          <th>VG ID</th>
-          <th style="text-align:right">Action</th>
-        </tr>
-      </thead>
-      <tbody id="delete-tbody">
-        <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:40px;">Loading…</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── CONFIRM DELETE MODAL ── -->
-<div class="modal-overlay" id="del-modal" style="display:none">
-  <div class="modal">
-    <h2>⚠️ Delete Role Questions</h2>
-    <p>This will permanently remove all questions for <strong id="del-role-name" style="color:var(--text)"></strong> from both the Excel store and ChromaDB. This cannot be undone.</p>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-danger" id="confirm-del-btn" onclick="confirmDelete()">Delete Permanently</button>
+      <div id="result-section" style="display:none; margin-top:20px;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div class="card"
+            style="flex:1; min-width:150px; text-align:center; padding:20px; border-color: rgba(34,197,94,.3); background:rgba(34,197,94,.05)">
+            <div style="font-size:32px; font-weight:800; color:var(--success)" id="result-count">0</div>
+            <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em">Questions
+              Added</div>
+          </div>
+          <div class="card" style="flex:2; min-width:200px; padding:20px;">
+            <div
+              style="font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:8px;">
+              Skills Extracted by Qwen</div>
+            <div id="result-skills" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+          <button class="btn btn-secondary" onclick="resetForm()">Add Another Role</button>
+          <button class="btn btn-success" onclick="switchTab('home')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            View Question Bank
+          </button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-// ── STATE ─────────────────────────────────────────────────────────
-let allJobs = [];
-let pendingDeleteVG = null;
-let pendingDeleteRole = null;
-let activeEventSource = null;
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE 3: UPLOAD SHEET                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="page" id="page-upload">
+    <h1>Upload Sheet to VectorDB</h1>
+    <p class="subtitle">Upload an Excel file with exactly the 8 required columns — rows are validated, embedded, and
+      pushed to ChromaDB instantly.</p>
 
-// ── BOOT ──────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  checkHealth();
-  loadJobs();
-  document.getElementById('add-num').addEventListener('input', e => {
-    document.getElementById('add-num-display').textContent = e.target.value;
-  });
-});
+    <!-- Schema reference -->
+    <div class="card" style="margin-bottom:20px;">
+      <div
+        style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:10px;">
+        Required 8-Column Schema</div>
+      <div class="schema-grid">
+        <div class="schema-col"><span class="col-num">A</span>question_id</div>
+        <div class="schema-col"><span class="col-num">B</span>question_text</div>
+        <div class="schema-col"><span class="col-num">C</span>role</div>
+        <div class="schema-col"><span class="col-num">D</span>evaluation_area</div>
+        <div class="schema-col"><span class="col-num">E</span>experience_level</div>
+        <div class="schema-col"><span class="col-num">F</span>question_type</div>
+        <div class="schema-col"><span class="col-num">G</span>what_ai_listens_for</div>
+        <div class="schema-col"><span class="col-num">H</span>follow_up_trigger</div>
+      </div>
+      <p style="margin-top:12px; font-size:12px; color:var(--muted);">
+        ⚠️ Row 1 must be the header row with these exact names. The <strong>question_id</strong> column is auto-assigned
+        on upload — you may leave it blank or use any placeholder. Duplicate <strong>question_text</strong> rows are
+        skipped automatically.
+      </p>
+    </div>
 
-// ── HEALTH CHECK ──────────────────────────────────────────────────
-async function checkHealth() {
-  try {
-    const r = await fetch('/api/health');
-    const d = await r.json();
-    const dot = document.getElementById('ollama-dot');
-    const lbl = document.getElementById('ollama-label');
-    if (d.ollama) { dot.classList.add('ok'); lbl.textContent = 'Ollama ready'; }
-    else { lbl.textContent = 'Ollama offline'; }
-  } catch { document.getElementById('ollama-label').textContent = 'Ollama offline'; }
-}
+    <!-- Upload area -->
+    <div class="card">
+      <div class="drop-zone" id="upload-drop-zone" onclick="document.getElementById('upload-file-input').click()"
+        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <div class="dz-title" id="dz-title">Drag & drop your .xlsx file here</div>
+        <div class="dz-sub" id="dz-sub">or click to browse — only .xlsx / .xls accepted</div>
+      </div>
+      <input type="file" id="upload-file-input" accept=".xlsx,.xls" style="display:none"
+        onchange="handleFileSelect(event)" />
 
-// ── NAVIGATION ────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-'+tab).classList.add('active');
-  document.getElementById('tab-'+tab).classList.add('active');
-  if (tab === 'delete') loadDeleteTable();
-}
+      <!-- File info row (shown after selection) -->
+      <div id="upload-file-info"
+        style="display:none; margin-top:16px; padding:14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; display:none; align-items:center; gap:14px;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:13px;" id="upload-fname">—</div>
+          <div style="font-size:11px; color:var(--muted);" id="upload-fmeta">—</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="clearUpload()">✕ Clear</button>
+      </div>
 
-// ── CHECK VECTORDB ────────────────────────────────────────────────
-async function checkVDB() {
-  const btn = document.getElementById('vdb-btn');
-  const row = document.getElementById('vdb-status-row');
-  btn.innerHTML = '<div class="spinner"></div> Checking…';
-  btn.disabled = true;
-  try {
-    const r = await fetch('/api/health');
-    const d = await r.json();
-    const total = allJobs.reduce((s, j) => s + (j.num_questions||0), 0);
-    row.style.display = 'block';
-    row.innerHTML = `
-      <div class="vdb-badge" style="border-color:${d.chroma ? 'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'}; color:${d.chroma?'var(--success)':'var(--danger)'}">
-        <div class="status-dot ${d.chroma?'ok':''}"></div>
+      <!-- Upload button -->
+      <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+        <button class="btn btn-primary" id="upload-btn" onclick="submitUpload()" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          Upload &amp; Push to VectorDB
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress / Results -->
+    <div class="card" id="upload-progress-card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="font-weight:700; font-size:15px;">Upload Progress</div>
+        <div class="vdb-badge" id="upload-status-badge">
+          <div class="spinner"></div><span>Uploading…</span>
+        </div>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="upload-progress-bar" style="width:0%"></div>
+      </div>
+      <div class="log-box" id="upload-log" style="margin-top:12px;"></div>
+
+      <!-- Success result section -->
+      <div id="upload-result" style="display:none; margin-top:20px;">
+        <div class="upload-result-grid">
+          <div class="upload-stat" style="border-color:rgba(34,197,94,.3); background:rgba(34,197,94,.05);">
+            <div class="stat-num" id="upl-added" style="color:var(--success);">0</div>
+            <div class="stat-lbl">Rows Added</div>
+          </div>
+          <div class="upload-stat" style="border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.05);">
+            <div class="stat-num" id="upl-skipped" style="color:var(--warning);">0</div>
+            <div class="stat-lbl">Duplicates Skipped</div>
+          </div>
+          <div class="upload-stat">
+            <div class="stat-num" id="upl-vgid" style="color:var(--accent); font-size:16px; margin-top:6px;">—</div>
+            <div class="stat-lbl">Variant Group ID</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+          <button class="btn btn-secondary" onclick="resetUploadForm()">Upload Another File</button>
+          <button class="btn btn-success" onclick="switchTab('home'); loadJobs();">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            View Question Bank
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE 4: MANAGE / DELETE                                             -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <div class="page" id="page-delete">
+    <h1>Manage Roles</h1>
+    <p class="subtitle">Search and delete entire role question sets from both Excel and ChromaDB.</p>
+
+    <div class="search-bar" style="margin-bottom:20px;">
+      <input type="text" id="del-search" placeholder="🔍  Search by role name…" oninput="filterDeleteTable()" />
+      <select id="del-level" onchange="filterDeleteTable()" style="width:200px">
+        <option value="">All levels</option>
+        <option value="Fresher">Fresher</option>
+        <option value="Mid-level">Mid-level</option>
+        <option value="Senior">Senior</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadDeleteTable()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10" />
+          <path d="M3.51 15a9 9 0 1 0 .49-3.36" />
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="delete-table" id="delete-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Experience Level</th>
+            <th>Questions</th>
+            <th>Created</th>
+            <th>VG ID</th>
+            <th style="text-align:right">Action</th>
+          </tr>
+        </thead>
+        <tbody id="delete-tbody">
+          <tr>
+            <td colspan="6" style="text-align:center; color:var(--muted); padding:40px;">Loading…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── CONFIRM DELETE MODAL ── -->
+  <div class="modal-overlay" id="del-modal" style="display:none">
+    <div class="modal">
+      <h2>⚠️ Delete Role Questions</h2>
+      <p>This will permanently remove all questions for <strong id="del-role-name" style="color:var(--text)"></strong>
+        from both the Excel store and ChromaDB. This cannot be undone.</p>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-danger" id="confirm-del-btn" onclick="confirmDelete()">Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── STATE ─────────────────────────────────────────────────────────
+    let allJobs = [];
+    let pendingDeleteVG = null;
+    let pendingDeleteRole = null;
+    let activeEventSource = null;
+
+    // ── AUTH ───────────────────────────────────────────────────────────
+    async function checkAuth() {
+      try {
+        const r = await fetch('/api/me');
+        if (r.ok) {
+          const d = await r.json();
+          showPortal(d.email);
+        } else {
+          showLoginOverlay();
+        }
+      } catch {
+        showLoginOverlay();
+      }
+    }
+
+    function showPortal(email) {
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('nav-admin').style.display = 'flex';
+      document.getElementById('nav-admin-email').textContent = email;
+      checkHealth();
+      loadJobs();
+      document.getElementById('add-num').addEventListener('input', e => {
+        document.getElementById('add-num-display').textContent = e.target.value;
+      });
+    }
+
+    function showLoginOverlay() {
+      document.getElementById('login-overlay').style.display = 'flex';
+      setTimeout(() => document.getElementById('login-email').focus(), 100);
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-pass').value;
+      const errEl = document.getElementById('login-error');
+      const btn = document.getElementById('login-btn');
+
+      errEl.style.display = 'none';
+      if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner" style="border-top-color:#fff"></div> Signing in…';
+
+      try {
+        const fd = new FormData();
+        fd.append('email', email);
+        fd.append('password', password);
+        const r = await fetch('/api/login', { method: 'POST', body: fd });
+        if (r.ok) {
+          document.getElementById('login-pass').value = '';
+          showPortal(email);
+        } else {
+          const d = await r.json().catch(() => ({}));
+          errEl.textContent = d.detail || 'Invalid email or password.';
+          errEl.style.display = 'block';
+          document.getElementById('login-pass').value = '';
+          document.getElementById('login-pass').focus();
+        }
+      } catch (e) {
+        errEl.textContent = 'Network error — could not reach the server.';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Sign In';
+      }
+    }
+
+    async function doLogout() {
+      await fetch('/api/logout', { method: 'POST' });
+      allJobs = [];
+      document.getElementById('nav-admin').style.display = 'none';
+      document.getElementById('jobs-grid').innerHTML = '';
+      showLoginOverlay();
+      showToast('👋 Logged out successfully');
+    }
+
+    // ── BOOT ──────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();   // check session → show login or portal
+    });
+
+
+    // ── HEALTH CHECK ──────────────────────────────────────────────────
+    async function checkHealth() {
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        const dot = document.getElementById('ollama-dot');
+        const lbl = document.getElementById('ollama-label');
+        if (d.ollama) { dot.classList.add('ok'); lbl.textContent = 'Ollama ready'; }
+        else { lbl.textContent = 'Ollama offline'; }
+      } catch { document.getElementById('ollama-label').textContent = 'Ollama offline'; }
+    }
+
+    // ── NAVIGATION ────────────────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('page-' + tab).classList.add('active');
+      document.getElementById('tab-' + tab).classList.add('active');
+      if (tab === 'delete') loadDeleteTable();
+    }
+
+    // ── CHECK VECTORDB ────────────────────────────────────────────────
+    async function checkVDB() {
+      const btn = document.getElementById('vdb-btn');
+      const row = document.getElementById('vdb-status-row');
+      btn.innerHTML = '<div class="spinner"></div> Checking…';
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        const total = allJobs.reduce((s, j) => s + (j.num_questions || 0), 0);
+        row.style.display = 'block';
+        row.innerHTML = `
+      <div class="vdb-badge" style="border-color:${d.chroma ? 'rgba(34,197,94,.4)' : 'rgba(239,68,68,.4)'}; color:${d.chroma ? 'var(--success)' : 'var(--danger)'}">
+        <div class="status-dot ${d.chroma ? 'ok' : ''}"></div>
         ChromaDB: ${d.chroma ? 'Connected' : 'Offline'}
         &nbsp;·&nbsp; ${allJobs.length} roles &nbsp;·&nbsp; ${total} total questions
       </div>`;
-  } finally {
-    btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4z"/><path d="M4 12h16v4H4z"/><path d="M4 20h4"/><path d="M12 20h8"/></svg> Check VectorDB';
-    btn.disabled = false;
-  }
-}
+      } finally {
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4z"/><path d="M4 12h16v4H4z"/><path d="M4 20h4"/><path d="M12 20h8"/></svg> Check VectorDB';
+        btn.disabled = false;
+      }
+    }
 
-// ── LOAD JOBS ─────────────────────────────────────────────────────
-async function loadJobs() {
-  document.getElementById('jobs-grid').innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;border-top-color:var(--accent)"></div></div>';
-  try {
-    const r = await fetch('/api/jobs');
-    allJobs = await r.json();
-    renderJobs(allJobs);
-  } catch(e) {
-    document.getElementById('jobs-grid').innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed to load: ${e.message}</p></div>`;
-  }
-}
+    // ── LOAD JOBS ─────────────────────────────────────────────────────
+    async function loadJobs() {
+      document.getElementById('jobs-grid').innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;border-top-color:var(--accent)"></div></div>';
+      try {
+        const r = await fetch('/api/jobs');
+        allJobs = await r.json();
+        renderJobs(allJobs);
+      } catch (e) {
+        document.getElementById('jobs-grid').innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed to load: ${e.message}</p></div>`;
+      }
+    }
 
-function filterJobs() {
-  const q = document.getElementById('home-search').value.toLowerCase();
-  const lvl = document.getElementById('home-level').value;
-  const filtered = allJobs.filter(j => {
-    const matchRole = j.role.toLowerCase().includes(q);
-    const matchLvl = !lvl || j.experience_level === lvl;
-    return matchRole && matchLvl;
-  });
-  renderJobs(filtered);
-}
+    function filterJobs() {
+      const q = document.getElementById('home-search').value.toLowerCase();
+      const lvl = document.getElementById('home-level').value;
+      const filtered = allJobs.filter(j => {
+        const matchRole = j.role.toLowerCase().includes(q);
+        const matchLvl = !lvl || j.experience_level === lvl;
+        return matchRole && matchLvl;
+      });
+      renderJobs(filtered);
+    }
 
-function levelClass(lvl) {
-  if (!lvl) return '';
-  if (lvl.toLowerCase().includes('fresh')) return 'level-fresher';
-  if (lvl.toLowerCase().includes('mid')) return 'level-mid';
-  return 'level-senior';
-}
+    function levelClass(lvl) {
+      if (!lvl) return '';
+      if (lvl.toLowerCase().includes('fresh')) return 'level-fresher';
+      if (lvl.toLowerCase().includes('mid')) return 'level-mid';
+      return 'level-senior';
+    }
 
-function renderJobs(jobs) {
-  const grid = document.getElementById('jobs-grid');
-  if (!jobs.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+    function renderJobs(jobs) {
+      const grid = document.getElementById('jobs-grid');
+      if (!jobs.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       <h3>No roles found</h3>
       <p>Try a different search or add questions on the Add Questions tab.</p>
     </div>`;
-    return;
-  }
-  grid.innerHTML = jobs.map(j => `
+        return;
+      }
+      grid.innerHTML = jobs.map(j => `
     <div class="job-card">
       <div class="job-card-header">
         <div class="role-name">${j.role}</div>
-        <div class="level-badge ${levelClass(j.experience_level)}">${j.experience_level||'—'}</div>
+        <div class="level-badge ${levelClass(j.experience_level)}">${j.experience_level || '—'}</div>
       </div>
       <div class="job-card-meta">
-        <span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${j.created_at||'—'}</span>
+        <span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${j.created_at || '—'}</span>
         <span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M9 4h6l2 7H7z"/><path d="M7 11l-3 9M17 11l3 9"/></svg> ${j.variant_group_id}</span>
       </div>
-      ${j.skills_extracted && j.skills_extracted.length ? `<div class="job-card-skills">${j.skills_extracted.slice(0,5).map(s=>`<span class="skill-tag">${s}</span>`).join('')}${j.skills_extracted.length>5?`<span class="skill-tag">+${j.skills_extracted.length-5}</span>`:''}</div>` : ''}
+      ${j.skills_extracted && j.skills_extracted.length ? `<div class="job-card-skills">${j.skills_extracted.slice(0, 5).map(s => `<span class="skill-tag">${s}</span>`).join('')}${j.skills_extracted.length > 5 ? `<span class="skill-tag">+${j.skills_extracted.length - 5}</span>` : ''}</div>` : ''}
       <div class="job-card-footer">
         <div><div class="q-count">${j.num_questions}</div><div class="q-label">Questions</div></div>
-        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${j.variant_group_id}','${j.role.replace(/'/g,"\\'")}')">
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${j.variant_group_id}','${j.role.replace(/'/g, "\\'")}')">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
           Delete
         </button>
       </div>
     </div>
   `).join('');
-}
-
-// ── ADD QUESTIONS ──────────────────────────────────────────────────
-async function startGeneration() {
-  const role = document.getElementById('add-role').value.trim();
-  const level = document.getElementById('add-level').value;
-  const num = parseInt(document.getElementById('add-num').value) || 20;
-  const jd = document.getElementById('add-jd').value.trim();
-
-  if (!role) return alert('Please enter a role name.');
-  if (!level) return alert('Please select an experience level.');
-
-  const btn = document.getElementById('add-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Starting…';
-
-  document.getElementById('progress-card').style.display = 'block';
-  document.getElementById('result-section').style.display = 'none';
-  document.getElementById('log-box').innerHTML = '';
-  setProgress(0, 'Sending request…');
-
-  try {
-    const fd = new FormData();
-    fd.append('role', role);
-    fd.append('experience_level', level);
-    fd.append('num_questions', num);
-    fd.append('jd_text', jd);
-
-    const r = await fetch('/api/generate', { method: 'POST', body: fd });
-    const d = await r.json();
-    if (!d.job_id) throw new Error('No job_id returned');
-
-    listenToJob(d.job_id);
-  } catch(e) {
-    appendLog(`ERROR: ${e.message}`, 'err');
-    btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate & Push to VectorDB';
-  }
-}
-
-function listenToJob(jobId) {
-  if (activeEventSource) activeEventSource.close();
-  activeEventSource = new EventSource(`/api/stream/${jobId}`);
-
-  activeEventSource.onmessage = (e) => {
-    const ev = JSON.parse(e.data);
-    const pct = ev.progress || 0;
-    const step = ev.step || '';
-
-    setProgress(pct, step);
-    appendLog(`[${pct}%] ${step}`, pct===100 && !ev.error ? 'ok' : ev.error ? 'err' : '');
-
-    if (ev.duplicate) {
-      appendLog(`⚠️  Duplicate detected — matched role "${ev.matched_role}" with similarity ${ev.similarity_score}`, 'warn');
-      endJob(false);
-      return;
     }
 
-    if (ev.error) {
-      appendLog(`❌  ${ev.error}`, 'err');
-      endJob(false);
-      activeEventSource.close();
-      return;
+    // ── ADD QUESTIONS ──────────────────────────────────────────────────
+    async function startGeneration() {
+      const role = document.getElementById('add-role').value.trim();
+      const level = document.getElementById('add-level').value;
+      const num = parseInt(document.getElementById('add-num').value) || 20;
+      const jd = document.getElementById('add-jd').value.trim();
+
+      if (!role) return alert('Please enter a role name.');
+      if (!level) return alert('Please select an experience level.');
+
+      const btn = document.getElementById('add-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Starting…';
+
+      document.getElementById('progress-card').style.display = 'block';
+      document.getElementById('result-section').style.display = 'none';
+      document.getElementById('log-box').innerHTML = '';
+      setProgress(0, 'Sending request…');
+
+      try {
+        const fd = new FormData();
+        fd.append('role', role);
+        fd.append('experience_level', level);
+        fd.append('num_questions', num);
+        fd.append('jd_text', jd);
+
+        const r = await fetch('/api/generate', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!d.job_id) throw new Error('No job_id returned');
+
+        listenToJob(d.job_id);
+      } catch (e) {
+        appendLog(`ERROR: ${e.message}`, 'err');
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate & Push to VectorDB';
+      }
     }
 
-    if (pct === 100) {
-      appendLog(`✅  Done! ${ev.questions_added} questions added to ChromaDB`, 'ok');
-      showResult(ev.questions_added, ev.skills_extracted || []);
-      endJob(true);
-      activeEventSource.close();
-      loadJobs();
+    function listenToJob(jobId) {
+      if (activeEventSource) activeEventSource.close();
+      activeEventSource = new EventSource(`/api/stream/${jobId}`);
+
+      activeEventSource.onmessage = (e) => {
+        const ev = JSON.parse(e.data);
+        const pct = ev.progress || 0;
+        const step = ev.step || '';
+
+        setProgress(pct, step);
+        appendLog(`[${pct}%] ${step}`, pct === 100 && !ev.error ? 'ok' : ev.error ? 'err' : '');
+
+        if (ev.duplicate) {
+          appendLog(`⚠️  Duplicate detected — matched role "${ev.matched_role}" with similarity ${ev.similarity_score}`, 'warn');
+          endJob(false);
+          return;
+        }
+
+        if (ev.error) {
+          appendLog(`❌  ${ev.error}`, 'err');
+          endJob(false);
+          activeEventSource.close();
+          return;
+        }
+
+        if (pct === 100) {
+          appendLog(`✅  Done! ${ev.questions_added} questions added to ChromaDB`, 'ok');
+          showResult(ev.questions_added, ev.skills_extracted || []);
+          endJob(true);
+          activeEventSource.close();
+          loadJobs();
+        }
+      };
+
+      activeEventSource.onerror = () => {
+        appendLog('Connection lost — check server logs.', 'err');
+        endJob(false);
+        activeEventSource.close();
+      };
     }
-  };
 
-  activeEventSource.onerror = () => {
-    appendLog('Connection lost — check server logs.', 'err');
-    endJob(false);
-    activeEventSource.close();
-  };
-}
+    function setProgress(pct, stepLabel) {
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-pct').textContent = pct + '%';
+      const lbl = document.getElementById('progress-step-label');
+      lbl.innerHTML = pct < 100
+        ? `<div class="spinner"></div><span>${stepLabel}</span>`
+        : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span style="color:var(--success)">Complete!</span>`;
+    }
 
-function setProgress(pct, stepLabel) {
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-pct').textContent = pct + '%';
-  const lbl = document.getElementById('progress-step-label');
-  lbl.innerHTML = pct < 100
-    ? `<div class="spinner"></div><span>${stepLabel}</span>`
-    : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span style="color:var(--success)">Complete!</span>`;
-}
+    function appendLog(msg, cls = '') {
+      const box = document.getElementById('log-box');
+      box.innerHTML += `<div class="log-entry ${cls ? 'log-' + cls : ''}">&gt; ${msg}</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
 
-function appendLog(msg, cls='') {
-  const box = document.getElementById('log-box');
-  box.innerHTML += `<div class="log-entry ${cls ? 'log-'+cls : ''}">&gt; ${msg}</div>`;
-  box.scrollTop = box.scrollHeight;
-}
+    function showResult(count, skills) {
+      document.getElementById('result-section').style.display = 'block';
+      document.getElementById('result-count').textContent = count;
+      document.getElementById('result-skills').innerHTML = skills.map(s => `<span class="skill-tag">${s}</span>`).join('');
+    }
 
-function showResult(count, skills) {
-  document.getElementById('result-section').style.display = 'block';
-  document.getElementById('result-count').textContent = count;
-  document.getElementById('result-skills').innerHTML = skills.map(s => `<span class="skill-tag">${s}</span>`).join('');
-}
+    function endJob(success) {
+      const btn = document.getElementById('add-btn');
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate & Push to VectorDB';
+    }
 
-function endJob(success) {
-  const btn = document.getElementById('add-btn');
-  btn.disabled = false;
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate & Push to VectorDB';
-}
+    function resetForm() {
+      document.getElementById('add-role').value = '';
+      document.getElementById('add-level').value = '';
+      document.getElementById('add-jd').value = '';
+      document.getElementById('add-num').value = 20;
+      document.getElementById('progress-card').style.display = 'none';
+      document.getElementById('result-section').style.display = 'none';
+      document.getElementById('add-num-display').textContent = '20';
+    }
 
-function resetForm() {
-  document.getElementById('add-role').value = '';
-  document.getElementById('add-level').value = '';
-  document.getElementById('add-jd').value = '';
-  document.getElementById('add-num').value = 20;
-  document.getElementById('progress-card').style.display = 'none';
-  document.getElementById('result-section').style.display = 'none';
-  document.getElementById('add-num-display').textContent = '20';
-}
+    // ── DELETE TABLE ───────────────────────────────────────────────────
+    async function loadDeleteTable() {
+      const tbody = document.getElementById('delete-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Loading…</td></tr>';
+      try {
+        const r = await fetch('/api/jobs');
+        allJobs = await r.json();
+        renderDeleteTable(allJobs);
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:30px;">Error: ${e.message}</td></tr>`;
+      }
+    }
 
-// ── DELETE TABLE ───────────────────────────────────────────────────
-async function loadDeleteTable() {
-  const tbody = document.getElementById('delete-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">Loading…</td></tr>';
-  try {
-    const r = await fetch('/api/jobs');
-    allJobs = await r.json();
-    renderDeleteTable(allJobs);
-  } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:30px;">Error: ${e.message}</td></tr>`;
-  }
-}
+    function filterDeleteTable() {
+      const q = document.getElementById('del-search').value.toLowerCase();
+      const lvl = document.getElementById('del-level').value;
+      const filtered = allJobs.filter(j => {
+        return j.role.toLowerCase().includes(q) && (!lvl || j.experience_level === lvl);
+      });
+      renderDeleteTable(filtered);
+    }
 
-function filterDeleteTable() {
-  const q = document.getElementById('del-search').value.toLowerCase();
-  const lvl = document.getElementById('del-level').value;
-  const filtered = allJobs.filter(j => {
-    return j.role.toLowerCase().includes(q) && (!lvl || j.experience_level === lvl);
-  });
-  renderDeleteTable(filtered);
-}
-
-function renderDeleteTable(jobs) {
-  const tbody = document.getElementById('delete-tbody');
-  if (!jobs.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px;">No roles found.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = jobs.map(j => `
+    function renderDeleteTable(jobs) {
+      const tbody = document.getElementById('delete-tbody');
+      if (!jobs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px;">No roles found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = jobs.map(j => `
     <tr>
       <td><strong>${j.role}</strong></td>
-      <td><span class="level-badge ${levelClass(j.experience_level)}">${j.experience_level||'—'}</span></td>
+      <td><span class="level-badge ${levelClass(j.experience_level)}">${j.experience_level || '—'}</span></td>
       <td><strong style="color:var(--accent)">${j.num_questions}</strong></td>
-      <td style="color:var(--muted)">${j.created_at||'—'}</td>
+      <td style="color:var(--muted)">${j.created_at || '—'}</td>
       <td style="color:var(--muted); font-family:monospace; font-size:11px">${j.variant_group_id}</td>
       <td style="text-align:right">
-        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${j.variant_group_id}','${j.role.replace(/'/g,"\\'")}')">
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${j.variant_group_id}','${j.role.replace(/'/g, "\\'")}')">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
           Delete
         </button>
       </td>
     </tr>
   `).join('');
-}
+    }
 
-// ── DELETE MODAL ───────────────────────────────────────────────────
-function openDeleteModal(vg, role) {
-  pendingDeleteVG = vg;
-  pendingDeleteRole = role;
-  document.getElementById('del-role-name').textContent = role;
-  document.getElementById('del-modal').style.display = 'flex';
-}
+    // ── DELETE MODAL ───────────────────────────────────────────────────
+    function openDeleteModal(vg, role) {
+      pendingDeleteVG = vg;
+      pendingDeleteRole = role;
+      document.getElementById('del-role-name').textContent = role;
+      document.getElementById('del-modal').style.display = 'flex';
+    }
 
-function closeModal() {
-  document.getElementById('del-modal').style.display = 'none';
-  pendingDeleteVG = null;
-  pendingDeleteRole = null;
-}
+    function closeModal() {
+      document.getElementById('del-modal').style.display = 'none';
+      pendingDeleteVG = null;
+      pendingDeleteRole = null;
+    }
 
-async function confirmDelete() {
-  if (!pendingDeleteVG) return;
-  const btn = document.getElementById('confirm-del-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Deleting…';
+    async function confirmDelete() {
+      if (!pendingDeleteVG) return;
+      const btn = document.getElementById('confirm-del-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Deleting…';
 
-  try {
-    const r = await fetch(`/api/jobs/${pendingDeleteVG}`, { method: 'DELETE' });
-    const d = await r.json();
-    closeModal();
-    showToast(`✅  "${pendingDeleteRole}" deleted — ${d.questions_removed} questions removed`);
-    await loadJobs();
-    renderDeleteTable(allJobs);
-  } catch(e) {
-    alert('Delete failed: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Delete Permanently';
-  }
-}
+      try {
+        const r = await fetch(`/api/jobs/${pendingDeleteVG}`, { method: 'DELETE' });
+        const d = await r.json();
+        closeModal();
+        showToast(`✅  "${pendingDeleteRole}" deleted — ${d.questions_removed} questions removed`);
+        await loadJobs();
+        renderDeleteTable(allJobs);
+      } catch (e) {
+        alert('Delete failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Delete Permanently';
+      }
+    }
 
-// ── TOAST ──────────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
-}
-</script>
+    // ── UPLOAD SHEET ───────────────────────────────────────────────────
+    let selectedUploadFile = null;
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('upload-drop-zone').classList.add('dragover');
+    }
+    function handleDragLeave(e) {
+      document.getElementById('upload-drop-zone').classList.remove('dragover');
+    }
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('upload-drop-zone').classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) applyFile(file);
+    }
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) applyFile(file);
+    }
+
+    function applyFile(file) {
+      if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        alert('Only .xlsx / .xls files are accepted.');
+        return;
+      }
+      selectedUploadFile = file;
+      const kb = (file.size / 1024).toFixed(1);
+      document.getElementById('upload-fname').textContent = file.name;
+      document.getElementById('upload-fmeta').textContent = `${kb} KB · ${file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}`;
+
+      const info = document.getElementById('upload-file-info');
+      info.style.display = 'flex';
+
+      document.getElementById('dz-title').textContent = '✅  File selected — ready to upload';
+      document.getElementById('dz-sub').textContent = file.name;
+      document.getElementById('upload-btn').disabled = false;
+
+      // Reset progress area in case user uploads again
+      document.getElementById('upload-progress-card').style.display = 'none';
+      document.getElementById('upload-result').style.display = 'none';
+      document.getElementById('upload-log').innerHTML = '';
+    }
+
+    function clearUpload() {
+      selectedUploadFile = null;
+      document.getElementById('upload-file-input').value = '';
+      document.getElementById('upload-file-info').style.display = 'none';
+      document.getElementById('upload-btn').disabled = true;
+      document.getElementById('dz-title').textContent = 'Drag & drop your .xlsx file here';
+      document.getElementById('dz-sub').textContent = 'or click to browse — only .xlsx / .xls accepted';
+      document.getElementById('upload-progress-card').style.display = 'none';
+    }
+
+    function uplLog(msg, cls = '') {
+      const box = document.getElementById('upload-log');
+      box.innerHTML += `<div class="log-entry ${cls ? 'log-' + cls : ''}"> ${msg}</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function setUplProgress(pct) {
+      document.getElementById('upload-progress-bar').style.width = pct + '%';
+    }
+
+    async function submitUpload() {
+      if (!selectedUploadFile) return;
+
+      const btn = document.getElementById('upload-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Uploading…';
+
+      const card = document.getElementById('upload-progress-card');
+      card.style.display = 'block';
+      document.getElementById('upload-result').style.display = 'none';
+      document.getElementById('upload-log').innerHTML = '';
+
+      const badge = document.getElementById('upload-status-badge');
+      badge.innerHTML = '<div class="spinner"></div><span>Validating & embedding…</span>';
+      setUplProgress(10);
+      uplLog('Sending file to server…');
+
+      try {
+        const fd = new FormData();
+        fd.append('file', selectedUploadFile);
+
+        setUplProgress(30);
+        uplLog('Validating 8-column schema…');
+
+        const resp = await fetch('/api/upload-sheet', { method: 'POST', body: fd });
+        setUplProgress(70);
+        uplLog('Embedding rows into ChromaDB…');
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          let detail = err.detail;
+          if (typeof detail === 'object') {
+            uplLog(`❌  Schema mismatch:`, 'err');
+            uplLog(`Expected: ${detail.expected.join(', ')}`, 'err');
+            uplLog(`Received: ${detail.received.join(', ')}`, 'err');
+          } else {
+            uplLog(`❌  ${detail}`, 'err');
+          }
+          badge.innerHTML = '<span style="color:var(--danger)">❌ Failed</span>';
+          setUplProgress(0);
+          return;
+        }
+
+        const d = await resp.json();
+        setUplProgress(100);
+        uplLog(`✅  ${d.rows_added} rows added, ${d.rows_skipped} duplicates skipped`, 'ok');
+        uplLog(`✅  VectorDB Group: ${d.variant_group_id}`, 'ok');
+        if (d.roles && d.roles.length) uplLog(`Roles: ${d.roles.join(', ')}`, 'ok');
+
+        badge.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span style="color:var(--success)">Done!</span>';
+
+        document.getElementById('upl-added').textContent = d.rows_added;
+        document.getElementById('upl-skipped').textContent = d.rows_skipped;
+        document.getElementById('upl-vgid').textContent = d.variant_group_id;
+        document.getElementById('upload-result').style.display = 'block';
+
+        showToast(`✅  Sheet uploaded — ${d.rows_added} questions added to VectorDB`);
+
+      } catch (e) {
+        uplLog(`❌  ${e.message}`, 'err');
+        badge.innerHTML = '<span style="color:var(--danger)">❌ Error</span>';
+        setUplProgress(0);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload & Push to VectorDB';
+      }
+    }
+
+    function resetUploadForm() {
+      clearUpload();
+      document.getElementById('upload-result').style.display = 'none';
+      document.getElementById('upload-progress-card').style.display = 'none';
+    }
+
+    // ── TOAST ──────────────────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 4000);
+    }
+  </script>
 </body>
+
 </html>

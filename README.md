@@ -26,7 +26,9 @@ VectorDB updated ✅ — live interviews can now use these questions
 
 ---
 
-## 3-Page Web Portal
+## 4-Page Secure Web Portal
+
+The portal is secured by a login overlay. Only administrators with valid credentials in the `.env` file can access the web application.
 
 ### Page 1 — Question Bank (Home)
 - Grid of all generated roles in the VectorDB
@@ -42,7 +44,14 @@ VectorDB updated ✅ — live interviews can now use these questions
 - Live **progress bar** + **log console** showing every step
 - Result panel shows questions added + skills Qwen extracted
 
-### Page 3 — Manage Roles
+### Page 3 — Upload Sheet
+- Directly upload `.xlsx` or `.xls` files with exactly the **8-column schema**.
+- **Bypasses LLM generation**: Instantly embeds rows and syncs to ChromaDB.
+- **Smart Validation**: Blocks invalid schemas with clear error feedback.
+- **Deduplication**: Automatically skips questions that already exist in the database.
+- Shows live animation progress and instantly reports rows added and skipped.
+
+### Page 4 — Manage Roles
 - Full table of all roles with search + level filter
 - **Delete** button per role — removes from both `questions.xlsx` and ChromaDB atomically via confirmation modal
 
@@ -130,6 +139,9 @@ scout_ai_interviewer/
 ├── portal.html               # 3-page frontend (Vanilla JS/CSS)
 ├── requirements.txt
 ├── .env                      # Configuration overrides
+├── frontend/                 # Client-side web application source
+│   ├── index.html
+│   └── style.css
 ├── data/
 │   ├── questions.xlsx        # Master question store (8-column schema)
 │   └── questions_store_empty.xlsx  # Blank template (reference only)
@@ -151,6 +163,9 @@ scout_ai_interviewer/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ADMIN_EMAIL` | `admin@scout.ai` | Admin portal login email |
+| `ADMIN_PASSWORD` | `Scout@2024` | Admin portal login password |
+| `SESSION_SECRET` | `fallback-secret-change-me` | Secret used to sign session cookies |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `EMBEDDING_WORKERS` | `8` | Parallel embedding threads |
