@@ -9,8 +9,8 @@ Three outputs:
   3. text_report()       — human-readable recruiter report
 
 Report includes:
-  - Overall score (Qwen-7B based)
-  - Per-area breakdown (score, signal, Qwen's evidence)
+  - Overall score (AI Interviewer based)
+  - Per-area breakdown (score, signal, interviewer's evidence)
   - OpenAI meta-evaluation summary (question quality + scoring accuracy)
   - Red flags (non-negotiable breaches, poor questions, scoring issues)
   - Complete conversation transcript
@@ -53,7 +53,7 @@ class ReportGenerator:
         print(f"  Duration : {session.total_turns} questions")
         print(f"  Date     : {session.started_at[:10]}")
 
-        print("\n  EVALUATION AREA SCORES (Qwen-7B)")
+        print("\n  EVALUATION AREA SCORES (AI Interviewer)")
         print("  " + "─" * 60)
 
         for area, t in session.area_tracker.items():
@@ -70,7 +70,7 @@ class ReportGenerator:
                 print(f"  {label}: Not evaluated")
 
         print("\n  " + "─" * 60)
-        print(f"  {'OVERALL SCORE (Qwen)'.ljust(37)}: {session.overall_score:.2f}/100")
+        print(f"  {'OVERALL SCORE'.ljust(37)}: {session.overall_score:.2f}/100")
 
         # Meta-evaluation summary
         print(f"\n  OPENAI META-EVALUATION SUMMARY")
@@ -118,7 +118,7 @@ class ReportGenerator:
             "═" * 65,
             "  SECTION 1: OVERALL SCORE",
             "═" * 65,
-            f"  Overall Score (Qwen-7B): {session.overall_score:.2f}/100",
+            f"  Overall Score: {session.overall_score:.2f}/100",
             "",
         ]
 
@@ -137,7 +137,7 @@ class ReportGenerator:
                     else ("MODERATE" if t.avg_qwen_score >= 5 else "WEAK")
                 )
                 lines.append(f"  Questions Asked : {t.questions_asked}/{t.questions_to_ask}")
-                lines.append(f"  Qwen Score      : {t.avg_qwen_score:.1f}/10  [{signal}]")
+                lines.append(f"  AI Score        : {t.avg_qwen_score:.1f}/10  [{signal}]")
                 lines.append(f"  Weighted Score  : {t.weighted_score:.2f}/{t.weight:.0f}%")
                 if t.threshold_breached and t.min_score:
                     lines.append(f"  ⚠️  THRESHOLD BREACH: {t.avg_qwen_score:.1f} < min {t.min_score}")
@@ -150,11 +150,11 @@ class ReportGenerator:
         lines += [
             "",
             "═" * 65,
-            "  SECTION 3: OPENAI META-EVALUATION OF QWEN",
+            "  SECTION 3: OPENAI META-EVALUATION SUMMARY",
             "═" * 65,
-            f"  This section shows how OpenAI audited Qwen-7B's performance.",
-            f"  Qwen question issues  : {session.qwen_question_issues}",
-            f"  Qwen scoring issues   : {session.qwen_scoring_issues}",
+            f"  This section shows how OpenAI audited the AI Interviewer's performance.",
+            f"  Question quality issues : {session.qwen_question_issues}",
+            f"  Scoring accuracy issues : {session.qwen_scoring_issues}",
             "",
         ]
 
@@ -163,7 +163,7 @@ class ReportGenerator:
             for alert in session.meta_eval_alerts:
                 lines.append(f"    • {alert}")
         else:
-            lines.append("  ✅ Qwen performed within acceptable bounds on all turns.")
+            lines.append("  ✅ AI Interviewer performed within acceptable bounds on all turns.")
 
         # Transcript
         lines += [
@@ -177,9 +177,9 @@ class ReportGenerator:
             lines.append(f"\n  Turn {turn.turn_number}  |  {turn.evaluation_area}")
             lines.append(f"  Q [{turn.question_id}]: {turn.question_text}")
             if turn.qwen_rephrased:
-                lines.append(f"     (Rephrased by Qwen: {turn.qwen_select_reason})")
+                lines.append(f"     (Rephrased: {turn.qwen_select_reason})")
             lines.append(f"  A: {turn.candidate_response}")
-            lines.append(f"  Qwen Score: {turn.qwen_score}/10  —  {turn.qwen_rationale}")
+            lines.append(f"  AI Score: {turn.qwen_score}/10  —  {turn.qwen_rationale}")
             if turn.openai_question_verdict:
                 lines.append(
                     f"  OpenAI Question Audit: {turn.openai_question_verdict.upper()} "

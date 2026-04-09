@@ -4,13 +4,12 @@ src/config.py
 Central configuration for Scout AI Interviewer.
 
 Architecture:
-  Qwen-7B via Ollama  → question embeddings + question generation (interviewer)
-  OpenAI GPT-4o-mini  → meta-evaluator only (evaluates Qwen's questions/scoring)
+  OpenAI GPT-4o-mini  → question embeddings + question selection + scoring + meta-evaluation
 
 Load order:  .env file → environment variables → defaults
 """
 
-import os   # os is used to get the environment variables uses .getenv()
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -37,26 +36,24 @@ class Config:
         "CHROMA_COLLECTION_NAME", "scout_questions"
     )
 
-    # ── Ollama / Qwen-7B ───────────────────────────────────────────
-    # Qwen is used strictly as the INTERVIEWER (question selection + scoring).
-    # nomic-embed-text is used for EMBEDDINGS (fast, dedicated embedding model).
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    QWEN_MODEL: str      = os.getenv("QWEN_MODEL", "qwen2.5:7b")
-    QWEN_TEMPERATURE: float = float(os.getenv("QWEN_TEMPERATURE", "0.7"))
+    # ── OpenAI — all roles ─────────────────────────────────────────
+    # Single API key powers everything:
+    #   1. Embeddings  (text-embedding-3-small) — ChromaDB indexing + query embedding
+    #   2. Interviewer (OPENAI_INTERVIEWER_MODEL) — question selection, rephrasing, scoring
+    #   3. Evaluator   (OPENAI_EVAL_MODEL) — meta-evaluation of interviewer quality
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # Embedding model — separate from Qwen (nomic-embed-text is ~10-20x faster).
-    # Used ONLY for ChromaDB indexing and query embedding.
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+    # Embedding model for ChromaDB indexing and query embedding
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
-    # Parallel embedding workers — how many concurrent requests to Ollama.
-    # 8 = fast for nomic-embed-text (lightweight model handles concurrency well).
+    # Parallel embedding workers
     EMBEDDING_WORKERS: int = int(os.getenv("EMBEDDING_WORKERS", "8"))
 
-    # ── OpenAI — meta-evaluator ONLY ──────────────────────────────
-    # OpenAI evaluates:
-    #   1. Whether Qwen's selected questions were appropriate
-    #   2. Whether Qwen's scoring of responses was accurate/fair
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    # Interviewer model — question selection, rephrasing, scoring
+    OPENAI_INTERVIEWER_MODEL: str = os.getenv("OPENAI_INTERVIEWER_MODEL", "gpt-4o-mini")
+    OPENAI_INTERVIEWER_TEMPERATURE: float = float(os.getenv("OPENAI_INTERVIEWER_TEMPERATURE", "0.7"))
+
+    # Evaluator model — meta-evaluation only
     OPENAI_EVAL_MODEL: str = os.getenv("OPENAI_EVAL_MODEL", "gpt-4o-mini")
     OPENAI_EVAL_TEMPERATURE: float = float(os.getenv("OPENAI_EVAL_TEMPERATURE", "0.2"))
 

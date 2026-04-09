@@ -5,7 +5,7 @@ Interview session state management.
 
 Tracks:
   - Rolling conversation window (last 5 turns) for LLM context
-  - Score tracker per evaluation area (Qwen's scores)
+  - Score tracker per evaluation area (AI Interviewer scores)
   - OpenAI meta-evaluation results per turn
   - Asked question IDs (never trimmed, for deduplication)
   - Overall weighted score
@@ -104,8 +104,7 @@ class InterviewSession:
     # Area score trackers
     area_tracker: Dict[str, EvaluationAreaTracker] = field(default_factory=dict)
 
-    # Rolling context window (last N turns) — fed into Qwen as context.
-    # Only contains Qwen's own Q+score data. No OpenAI content.
+    # Rolling context window (last N turns) — fed into AI as context.
     conversation_history: List[ConversationTurn] = field(default_factory=list)
 
     # Permanent full log of ALL turns — never trimmed.
@@ -119,10 +118,26 @@ class InterviewSession:
     total_turns: int = 0
     overall_score: float = 0.0   # sum of weighted scores
 
-    # Meta-evaluation stats (Qwen's performance as audited by OpenAI)
+    # Meta-evaluation stats (AI Interviewer performance as audited by OpenAI)
     meta_eval_alerts: List[str] = field(default_factory=list)
-    qwen_scoring_issues: int = 0
-    qwen_question_issues: int = 0
+    ai_scoring_issues: int = 0
+    ai_question_issues: int = 0
+
+    @property
+    def qwen_scoring_issues(self) -> int:   # backward compat
+        return self.ai_scoring_issues
+
+    @qwen_scoring_issues.setter
+    def qwen_scoring_issues(self, v: int):
+        self.ai_scoring_issues = v
+
+    @property
+    def qwen_question_issues(self) -> int:  # backward compat
+        return self.ai_question_issues
+
+    @qwen_question_issues.setter
+    def qwen_question_issues(self, v: int):
+        self.ai_question_issues = v
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -276,7 +291,7 @@ class InterviewStateManager:
                     self.session.meta_eval_alerts.append(alert)
 
         logger.debug(
-            "Turn %d recorded — Area: %s, Qwen score: %.1f/10",
+            "Turn %d recorded — Area: %s, AI score: %.1f/10",
             self.session.total_turns, evaluation_area, qwen_score,
         )
 
@@ -345,11 +360,8 @@ class InterviewStateManager:
 
     def get_context_string(self) -> str:
         """
-        Format recent conversation for Qwen's context injection.
+        Format recent conversation for the AI interviewer's context injection.
 
-        IMPORTANT: Only includes Qwen's own Q+score+rationale data.
-        NO candidate response text (avoids bias from simulated answers).
-        NO OpenAI meta-evaluation content (Qwen must not see its own audit).
         Rolling window: last 5 turns only.
         """
         if not self.session.conversation_history:
@@ -359,7 +371,7 @@ class InterviewStateManager:
         for t in self.session.conversation_history:
             lines.append(f"\nTurn {t.turn_number} | Area: {t.evaluation_area}")
             lines.append(f"  Question : {t.question_text}")
-            lines.append(f"  Qwen Score: {t.qwen_score}/10 — {t.qwen_rationale[:150]}")
+            lines.append(f"  Score : {t.qwen_score}/10 — {t.qwen_rationale[:150]}")
         return "\n".join(lines)
 
     def _recalculate_overall_score(self) -> None:
@@ -374,7 +386,7 @@ class InterviewStateManager:
 
     def get_live_scorecard(self) -> str:
         """Formatted scorecard for terminal display."""
-        lines = ["", "=" * 65, "  LIVE SCORECARD (Qwen-7B Interview Score)", "=" * 65]
+        lines = ["", "=" * 65, "  LIVE SCORECARD (AI Interview Score)", "=" * 65]
         for area, t in self.session.area_tracker.items():
             label = area[:36].ljust(38)
             if t.questions_asked > 0:
@@ -384,7 +396,7 @@ class InterviewStateManager:
                 value = "Not yet evaluated"
             lines.append(f"  {label}: {value}")
         lines.append("-" * 65)
-        lines.append(f"  {'Overall (Qwen)'.ljust(38)}: {self.session.overall_score:.2f}/100")
+        lines.append(f"  {'Overall Score'.ljust(38)}: {self.session.overall_score:.2f}/100")
         if self.session.meta_eval_alerts:
             lines.append("")
             lines.append("  🔍 META-EVAL ALERTS (OpenAI):")

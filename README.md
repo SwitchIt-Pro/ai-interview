@@ -1,6 +1,6 @@
 # Scout AI Interviewer
 
-A RAG-powered AI interview engine where **Qwen-7B** acts as the interviewer and **OpenAI** meta-evaluates Qwen's performance.
+A RAG-powered AI interview engine built entirely on **OpenAI** — embeddings, interviewing, scoring, meta-evaluation, and candidate simulation all use the OpenAI API. No local models required.
 
 768 dimensions of vectors
 Cosine similarity (hnsw:space: cosine)
@@ -13,38 +13,38 @@ Cosine similarity (hnsw:space: cosine)
 Excel Questions Store
         │
         ▼
-[Qwen-7B Embedder]          ← Same Qwen model generates embeddings
+[OpenAI Embedder]           ← text-embedding-3-small generates question embeddings
         │
         ▼
-   ChromaDB                 ← Vector database (cosine similarity)
+   ChromaDB                 ← Vector database (cosine similarity, persistent)
         │
         ▼ (RAG retrieval)
-[Qwen-7B Interviewer]       ← Qwen reads from ChromaDB, selects & asks questions
+[OpenAI Interviewer]        ← gpt-4o-mini reads from ChromaDB, selects & asks questions
         │
         ├─► Selects best question from RAG candidates
-        ├─► Optionally rephrases question to fit conversation
+        ├─► Optionally rephrases question to fit conversation tone
         └─► Scores candidate response (0–10 with rationale)
                 │
                 ▼
-[OpenAI Meta-Evaluator]     ← OpenAI evaluates Qwen's work
+[OpenAI Simulator]          ← gpt-4o-mini simulates candidate responses (default mode)
+                │
+                ▼
+[OpenAI Meta-Evaluator]     ← gpt-4o-mini audits interview quality (optional, --meta-eval)
         │
-        ├─► Was Qwen's question appropriate? (quality audit)
-        └─► Was Qwen's scoring accurate? (scoring audit)
+        ├─► Was the question appropriate? (quality audit)
+        └─► Was the scoring accurate? (scoring audit)
 ```
 
-### Key Design Decisions
+### Components
 
 | Component | Model | Role |
 |-----------|-------|------|
-| **Embeddings** | `qwen2.5:7b` (Ollama) | Generates question embeddings stored in ChromaDB |
-| **Interviewer** | `qwen2.5:7b` (Ollama) | Reads from ChromaDB via RAG, selects & asks questions, scores responses |
-| **Meta-Evaluator** | `gpt-4o-mini` (OpenAI) | Evaluates Qwen's question quality + scoring accuracy |
+| **Embeddings** | `text-embedding-3-small` (OpenAI) | Embeds questions into ChromaDB + embeds RAG queries |
+| **Interviewer** | `gpt-4o-mini` (OpenAI) | Selects questions via RAG, rephrases, scores responses |
+| **Simulator** | `gpt-4o-mini` (OpenAI) | Auto-generates candidate answers (default mode) |
+| **Meta-Evaluator** | `gpt-4o-mini` (OpenAI) | Audits question quality + scoring accuracy (optional) |
 
-**Qwen-7B is used for BOTH embeddings and interviewing** — this ensures the semantic space used for retrieval is aligned with the model doing the querying.
-
-**OpenAI only evaluates Qwen** — it does NOT conduct the interview. It audits whether Qwen:
-1. Asked appropriate, well-calibrated questions
-2. Scored responses fairly and accurately
+**Single API key** — everything uses `OPENAI_API_KEY`. No local models, no Ollama.
 
 ---
 
@@ -53,11 +53,6 @@ Excel Questions Store
 ### Prerequisites
 
 ```bash
-# 1. Install Ollama and pull Qwen-7B
-ollama pull qwen2.5:7b
-ollama serve
-
-# 2. Install Python dependencies
 pip install -r requirements.txt
 ```
 
@@ -66,44 +61,81 @@ pip install -r requirements.txt
 Edit `.env`:
 
 ```env
-OPENAI_API_KEY=sk-proj-...      # For meta-evaluation only
-QWEN_MODEL=qwen2.5:7b           # Qwen model (embeddings + interviewer)
-OLLAMA_BASE_URL=http://localhost:11434
+OPENAI_API_KEY=sk-proj-...           # Required — all roles use this key
+
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_WORKERS=8
+
+OPENAI_INTERVIEWER_MODEL=gpt-4o-mini
+OPENAI_INTERVIEWER_TEMPERATURE=0.7
+
+OPENAI_EVAL_MODEL=gpt-4o-mini
+OPENAI_EVAL_TEMPERATURE=0.2
 ```
 
 ### Data Setup
 
-Put `questions_store.xlsx` in the `data/` folder, then:
+Put `questions_store.xlsx` in the `data/` folder, then load it into ChromaDB:
 
 ```bash
-# Load questions into ChromaDB (run ONCE)
+# First time (or after changing embedding model)
 python scripts/load_data.py
 
-# Verify the load
-python scripts/inspect_db.py
+# Force full reload (wipes existing ChromaDB)
+python scripts/load_data.py --force-reload
+
+# Incremental sync (only add new / remove deleted questions)
+python scripts/load_data.py --sync
 ```
+
+> ⚠️ If you previously used a different embedding model, always use `--force-reload` to avoid dimension mismatch errors.
 
 ---
 
 ## Running an Interview
 
 ```bash
-# Default (Sales Executive, Mid-level)
+# Default — OpenAI simulates candidate answers, no meta-evaluation
 python scripts/run_interview.py
 
-# Custom role and areas
+# Type your own answers (interactive mode)
+python scripts/run_interview.py --interactive
+
+# Choose candidate persona for simulation
+python scripts/run_interview.py --persona strong    # strong / average / weak
+
+# Enable OpenAI meta-evaluation after each turn
+python scripts/run_interview.py --meta-eval
+
+# Custom role and level
+python scripts/run_interview.py --role "Account Manager" --level "Senior"
+
+# Custom evaluation areas
 python scripts/run_interview.py \
     --role "Account Manager" \
     --level "Senior" \
     --areas "Objection Handling:25:2:6:yes" \
-            "Communication Skills:20:2::no" \
-            "Pipeline Management:20:2" \
-            "Client Relationship:20:2" \
-            "Resilience:15:2"
+             "Communication Skills:20:2::no" \
+             "Pipeline Management:20:2" \
+             "Client Relationship:20:2" \
+             "Resilience:15:2"
 
-# Without OpenAI meta-evaluation (faster, no cost)
-python scripts/run_interview.py --no-meta-eval
+# Save JSON + text reports to reports/
+python scripts/run_interview.py --export
 ```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--role` | `Sales Executive` | Job role |
+| `--level` | `Mid-level` | `Fresher` / `Early Career` / `Mid-level` / `Senior` |
+| `--areas` | Default Sales config | Custom evaluation areas (see format below) |
+| `--persona` | `average` | Simulation persona: `strong` / `average` / `weak` |
+| `--interactive` | Off | You type answers instead of OpenAI simulating |
+| `--meta-eval` | Off | Enable OpenAI quality + scoring audit after each turn |
+| `--export` | Off | Save JSON + text report to `reports/` |
+| `--verbose` | Off | Enable debug logging |
 
 ### Area Format
 
@@ -113,9 +145,9 @@ python scripts/run_interview.py --no-meta-eval
 
 | Field | Example | Description |
 |-------|---------|-------------|
-| `AREA_NAME` | `Objection Handling` | Evaluation area (must match Excel data) |
+| `AREA_NAME` | `Objection Handling` | Evaluation area (must match Excel) |
 | `WEIGHT` | `25` | Percentage weight (all must sum to 100) |
-| `QUESTIONS` | `2` | Number of questions to ask for this area |
+| `QUESTIONS` | `2` | Number of questions to ask |
 | `MIN_SCORE` | `6` | Minimum acceptable score (leave empty for none) |
 | `NON_NEGOTIABLE` | `yes` | Whether breach triggers a hard alert |
 
@@ -123,58 +155,86 @@ python scripts/run_interview.py --no-meta-eval
 
 ## Output
 
-After each turn, you see:
+After each turn:
 
 ```
-🤖 Qwen: How do you typically handle a prospect who pushes back on pricing?
-👤 You: I start by understanding the underlying concern...
+🤖 AI: How do you typically handle a prospect who pushes back on pricing?
 
-📊 Qwen Score: 7.5/10  ✅  [STRONG]
-   Rationale: Candidate showed structured objection handling...
-   Strengths: Clear framework, empathy demonstrated
-   Weaknesses: Could be more specific on ROI calculation
+🎭 Simulated [STRONG]: I start by understanding the underlying concern...
 
-⏳ OpenAI is meta-evaluating Qwen's performance...
-──────────────────────────────────────────────────────────────
-  OPENAI META-EVALUATOR — Turn 1
-──────────────────────────────────────────────────────────────
-  ✅ Question Quality: APPROVED (Overall: 8.2/10 | Relevance: 9.0 | ...)
-     Feedback: The question directly tests objection handling...
+⏳ AI is scoring the response...
+📊 AI Score: 8.5/10  ✅  [STRONG]
+   Rationale: Candidate showed a structured approach to objection handling...
+   Strengths: Clear framework, empathy demonstrated, ROI-focused
+   Weaknesses: Could include more specific metrics
 
-  ✅ Scoring Accuracy: ACCURATE (Qwen: 7.5/10 | OpenAI: 8.0/10 | Δ=+0.5)
-     Assessment: Qwen's score is consistent with the response quality...
-──────────────────────────────────────────────────────────────
+═════════════════════════════════════════════════════════════════
+  LIVE SCORECARD (AI Interview Score)
+═════════════════════════════════════════════════════════════════
+  Objection Handling                    : 8.5/10 (28.90/34%)
+-----------------------------------------------------------------
+  Overall Score                         : 28.90/100
+═════════════════════════════════════════════════════════════════
 ```
 
-Final reports saved to `reports/`:
+Final summary printed at end of session. Use `--export` to save reports to `reports/`:
 - `session_TIMESTAMP.json` — full structured data
-- `report_TIMESTAMP.txt` — recruiter-readable report
+- `report_TIMESTAMP.txt` — human-readable recruiter report
 
 ---
 
 ## Project Structure
 
 ```
-scout_ai_interviewer/
-├── .env                         # API keys and config
+scout_ai_interviewer_openai/
+├── .env                          # API keys and config (not committed)
 ├── requirements.txt
 ├── data/
-│   └── questions_store.xlsx     # Question database (from Excel)
-├── chroma_store/                # ChromaDB persistence (auto-created)
-├── reports/                     # Interview reports (auto-created)
+│   └── questions_store.xlsx      # Question database (from Excel)
+├── chroma_store/                 # ChromaDB persistence (auto-created)
+├── reports/                      # Interview reports (auto-created)
 ├── src/
-│   ├── config.py                # Centralized configuration
-│   ├── embedder.py              # Qwen-7B embeddings via Ollama
-│   ├── excel_reader.py          # Excel → Question dataclasses
-│   ├── vector_store.py          # ChromaDB persistence layer
-│   ├── rag_engine.py            # High-level RAG query interface
-│   ├── qwen_interviewer.py      # QwenClient + QwenInterviewer
-│   ├── openai_evaluator.py      # OpenAI meta-evaluator
-│   ├── interview_state.py       # Session state management
-│   ├── interview_runner.py      # Full interview orchestration
-│   └── report_generator.py     # Report generation
+│   ├── config.py                 # Centralized configuration
+│   ├── embedder.py               # OpenAI text-embedding-3-small
+│   ├── excel_reader.py           # Excel → Question dataclasses
+│   ├── vector_store.py           # ChromaDB persistence layer
+│   ├── rag_engine.py             # High-level RAG query interface
+│   ├── openai_interviewer.py     # OpenAIClient + OpenAIInterviewer
+│   ├── openai_evaluator.py       # OpenAI meta-evaluator (optional)
+│   ├── candidate_simulator.py    # OpenAI candidate simulator
+│   ├── interview_state.py        # Session state management
+│   ├── interview_runner.py       # Full interview orchestration
+│   └── report_generator.py      # Report generation
 └── scripts/
-    ├── load_data.py             # Excel → ChromaDB loader
-    ├── run_interview.py         # Main entry point
-    └── inspect_db.py           # ChromaDB inspector
+    ├── load_data.py              # Excel → ChromaDB loader
+    ├── run_interview.py          # Main entry point
+    └── inspect_db.py            # ChromaDB inspector
+```
+
+---
+
+## Requirements
+
+```
+chromadb>=0.5.0
+openpyxl>=3.1.2
+python-dotenv>=1.0.0
+openai>=1.12.0
+rich>=13.7.0
+```
+
+---
+
+## Windows Note
+
+If you see Unicode errors on Windows, prefix commands with:
+
+```powershell
+$env:PYTHONUTF8=1; python scripts/run_interview.py
+```
+
+Or set it permanently:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "User")
 ```

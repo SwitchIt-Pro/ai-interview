@@ -5,9 +5,9 @@ scripts/run_interview.py
 Main entry point for the Scout AI Interview Engine.
 
 ARCHITECTURE:
-  Questions DB  : Excel → Qwen-7B embeddings → ChromaDB
-  Interviewer   : Qwen-7B (reads from ChromaDB via RAG, asks questions, scores)
-  Meta-Evaluator: OpenAI (evaluates Qwen's question quality + scoring accuracy)
+  Questions DB  : Excel → OpenAI embeddings → ChromaDB
+  Interviewer   : OpenAI GPT (reads from ChromaDB via RAG, asks questions, scores)
+  Meta-Evaluator: OpenAI GPT (evaluates question quality + scoring accuracy)
 
 QUICK START:
   # First, load your questions (ONCE):
@@ -99,7 +99,7 @@ def print_config(role: str, level: str, areas: list, use_meta_eval: bool, simula
     print(f"  Role            : {role}")
     print(f"  Level           : {level}")
     print(f"  Total Questions : {total_questions}")
-    print(f"  Meta-Evaluation : {'✓ OpenAI (evaluates Qwen)' if use_meta_eval else '✗ Disabled'}")
+    print(f"  Meta-Evaluation : {'✓ Enabled' if use_meta_eval else '✗ Disabled (use --meta-eval to enable)'}")
     if simulate:
         print(f"  Candidate Mode  : 🎭 SIMULATED by OpenAI (persona: {persona})")
     else:
@@ -124,7 +124,7 @@ def print_config(role: str, level: str, areas: list, use_meta_eval: bool, simula
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Scout AI Interviewer — Qwen-7B + RAG + OpenAI Meta-Evaluation",
+        description="Scout AI Interviewer — OpenAI GPT + RAG + Meta-Evaluation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -149,14 +149,14 @@ def main():
         ),
     )
     parser.add_argument(
-        "--no-meta-eval",
+        "--meta-eval",
         action="store_true",
-        help="Skip OpenAI meta-evaluation (faster, no OpenAI cost)"
+        help="Enable OpenAI meta-evaluation after each turn (off by default)"
     )
     parser.add_argument(
-        "--simulate",
+        "--interactive",
         action="store_true",
-        help="Auto-simulate candidate responses using OpenAI (no human typing needed)"
+        help="Run in interactive mode — you type the answers (default: OpenAI simulates)"
     )
     parser.add_argument(
         "--persona",
@@ -191,8 +191,8 @@ def main():
         areas = DEFAULT_AREAS
         print("\n  ℹ️  No --areas specified. Using default Sales configuration.")
 
-    use_meta_eval = not args.no_meta_eval
-    simulate      = args.simulate
+    use_meta_eval = args.meta_eval
+    simulate      = not args.interactive
     persona       = args.persona
 
     # ── Print config ───────────────────────────────────────────────
@@ -225,15 +225,15 @@ def main():
     generator = ReportGenerator()
     generator.print_summary(session)
 
-    # ── OpenAI final review of Qwen's performance ─────────────────
+    # ── OpenAI final review of interviewer performance ────────────
     if use_meta_eval:
         try:
             from src.openai_evaluator import OpenAIMetaEvaluator
             meta_evaluator = OpenAIMetaEvaluator()
             print("\n" + "═" * 65)
-            print("  OPENAI REVIEW — Qwen-7B Interviewer Performance")
+            print("  OPENAI REVIEW — Interviewer Performance")
             print("═" * 65)
-            print("  ⏳ OpenAI is writing its final review of Qwen...")
+            print("  ⏳ OpenAI is writing its final review of the interview...")
             review = meta_evaluator.review_qwen_performance(session)
             print()
             for line in review.splitlines():
